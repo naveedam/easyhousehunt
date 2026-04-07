@@ -20,7 +20,7 @@ const queryClient = new QueryClient();
 
 function AppLayout() {
   const location = useLocation();
-  const isMapPage = location.pathname === '/search';
+  const isMapPage = location.pathname === '/' || location.pathname === '/search';
 
   return (
     <AuthProvider>
@@ -28,9 +28,10 @@ function AppLayout() {
         {!isMapPage && <Navbar />}
         <main className="flex-1">
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<SearchProperties />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/search" element={<SearchProperties />} />
+            <Route path="/about" element={<Index />} />
             <Route path="/property/:id" element={<PropertyDetail />} />
             <Route path="/landlord" element={<LandlordDashboard />} />
             <Route path="/landlord/add" element={<AddEditProperty />} />
