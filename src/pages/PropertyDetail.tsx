@@ -1,29 +1,35 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useEnquiries } from '@/hooks/useEnquiries';
+import { useSavedProperties } from '@/hooks/useSavedProperties';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import ChatModal from '@/modules/chat/ChatModal';
 import {
-  CheckCircle, Zap, MapPin, BedDouble, Maximize, Phone, MessageCircle,
-  CalendarDays, IndianRupee, Loader2, ArrowLeft
+  CheckCircle, Zap, MapPin, BedDouble, Maximize,
+  MessageCircle, CalendarDays, IndianRupee, Loader2, ArrowLeft, Heart
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { createEnquiry } = useEnquiries('tenant');
+  const { isSaved, toggleSave } = useSavedProperties();
   const [property, setProperty] = useState<any>(null);
   const [landlord, setLandlord] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [enquiryMsg, setEnquiryMsg] = useState('');
   const [visitDate, setVisitDate] = useState('');
   const [sending, setSending] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) fetchProperty();
@@ -57,8 +63,13 @@ export default function PropertyDetail() {
       message: enquiryMsg,
       visit_date: visitDate || null,
     });
-    if (error) toast({ variant: 'destructive', title: 'Failed to send enquiry' });
-    else {
+    if (error) {
+      if (error.message.includes('Rate limit')) {
+        toast({ variant: 'destructive', title: 'Rate limit reached', description: 'Maximum 5 enquiries per day.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Failed to send enquiry' });
+      }
+    } else {
       toast({ title: 'Enquiry sent!', description: 'The landlord will contact you soon.' });
       setEnquiryMsg('');
       setVisitDate('');
@@ -66,9 +77,30 @@ export default function PropertyDetail() {
     setSending(false);
   };
 
-  const whatsappLink = landlord?.phone
-    ? `https://wa.me/${landlord.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi, I'm interested in "${property?.title}". Is it still available?`)}`
-    : null;
+  const handleContactOwner = async () => {
+    if (!user) { toast({ variant: 'destructive', title: 'Please login to contact owner' }); return; }
+    if (!id) return;
+
+    // Check existing enquiry
+    const { data: existing } = await supabase
+      .from('enquiries')
+      .select('id')
+      .eq('property_id', id)
+      .eq('tenant_id', user.id)
+      .limit(1);
+
+    let enquiryId: string;
+    if (existing && existing.length > 0) {
+      enquiryId = existing[0].id;
+    } else {
+      const result = await createEnquiry(id, 'I am interested in this property');
+      if (!result) return;
+      enquiryId = result.id;
+    }
+
+    setActiveEnquiryId(enquiryId);
+    setChatOpen(true);
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -84,12 +116,28 @@ export default function PropertyDetail() {
   );
 
   const images = property.property_images || [];
+  const chatParticipants = [
+    ...(user ? [{ id: user.id, name: 'You', role: 'tenant' }] : []),
+    ...(property ? [{ id: property.landlord_id, name: landlord?.full_name || 'Owner', role: 'owner' }] : []),
+  ];
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-5xl">
-      <Link to="/search" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Back to search
-      </Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link to="/search" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to search
+        </Link>
+        {id && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleSave(id)}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Heart className={`h-5 w-5 ${isSaved(id) ? 'fill-destructive text-destructive' : ''}`} />
+          </Button>
+        )}
+      </div>
 
       {/* Images */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
@@ -114,6 +162,9 @@ export default function PropertyDetail() {
               )}
               {property.is_instant_move_in && (
                 <Badge className="bg-accent text-accent-foreground gap-1"><Zap className="h-3 w-3" /> Instant Move-in</Badge>
+              )}
+              {property.is_featured && (
+                <Badge className="bg-warning text-warning-foreground gap-1">⭐ Featured</Badge>
               )}
               <Badge variant="secondary" className="capitalize">{property.property_type}</Badge>
             </div>
@@ -172,27 +223,26 @@ export default function PropertyDetail() {
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Contact Owner - Privacy First */}
+          <Card className="border-primary/30">
+            <CardContent className="p-4">
+              <Button className="w-full" size="lg" onClick={handleContactOwner}>
+                <MessageCircle className="h-4 w-4 mr-2" /> Contact Owner
+              </Button>
+              <p className="text-[11px] text-muted-foreground text-center mt-2">
+                🔒 Your contact info stays private
+              </p>
+            </CardContent>
+          </Card>
+
           {landlord && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base font-heading">Landlord</CardTitle>
+                <CardTitle className="text-base font-heading">Listed by</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 <p className="font-medium">{landlord.full_name || 'Property Owner'}</p>
-                {landlord.phone && (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <a href={`tel:${landlord.phone}`}><Phone className="h-4 w-4 mr-1" /> Call</a>
-                    </Button>
-                    {whatsappLink && (
-                      <Button size="sm" className="flex-1 bg-[hsl(142,70%,45%)] hover:bg-[hsl(142,70%,40%)] text-primary-foreground" asChild>
-                        <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
-                          <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground mt-1">Contact via in-app chat only</p>
               </CardContent>
             </Card>
           )}
@@ -222,6 +272,14 @@ export default function PropertyDetail() {
           </Button>
         </div>
       </div>
+
+      <ChatModal
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        enquiryId={activeEnquiryId}
+        propertyTitle={property?.title}
+        participants={chatParticipants}
+      />
     </div>
   );
 }

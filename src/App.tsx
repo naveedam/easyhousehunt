@@ -34,9 +34,11 @@ function AppLayout() {
             <Route path="/about" element={<Index />} />
             <Route path="/property/:id" element={<PropertyDetail />} />
             <Route path="/landlord" element={<LandlordDashboard />} />
+            <Route path="/owner-dashboard" element={<LandlordDashboard />} />
             <Route path="/landlord/add" element={<AddEditProperty />} />
             <Route path="/landlord/edit/:id" element={<AddEditProperty />} />
             <Route path="/dashboard" element={<TenantDashboard />} />
+            <Route path="/tenant-dashboard" element={<TenantDashboard />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

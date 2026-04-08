@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Home, MessageSquare, CalendarDays, Loader2 } from 'lucide-react';
+import ChatModal from '@/modules/chat/ChatModal';
+import { Plus, Home, MessageSquare, CalendarDays, Loader2, MessageCircle } from 'lucide-react';
 
 export default function LandlordDashboard() {
   const { user } = useAuth();
@@ -14,22 +15,42 @@ export default function LandlordDashboard() {
   const [properties, setProperties] = useState<any[]>([]);
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>(null);
+  const [chatParticipants, setChatParticipants] = useState<any[]>([]);
+  const [chatTitle, setChatTitle] = useState('');
 
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
 
   const fetchData = async () => {
-    const [propRes, enqRes] = await Promise.all([
-      supabase.from('properties').select('*').eq('landlord_id', user!.id).order('created_at', { ascending: false }),
-      supabase.from('enquiries').select('*, properties(title)').in(
-        'property_id',
-        (await supabase.from('properties').select('id').eq('landlord_id', user!.id)).data?.map(p => p.id) || []
-      ).order('created_at', { ascending: false }),
-    ]);
+    const propRes = await supabase.from('properties').select('*').eq('landlord_id', user!.id).order('created_at', { ascending: false });
+    const propIds = propRes.data?.map(p => p.id) || [];
+
+    const enqRes = propIds.length > 0
+      ? await supabase.from('enquiries').select('*, properties(title)').in('property_id', propIds).order('created_at', { ascending: false })
+      : { data: [] };
+
     setProperties(propRes.data || []);
     setEnquiries(enqRes.data || []);
     setLoading(false);
+  };
+
+  const openChat = async (enquiry: any) => {
+    const { data: tenantProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', enquiry.tenant_id)
+      .single();
+
+    setChatParticipants([
+      { id: user!.id, name: 'You', role: 'owner' },
+      { id: enquiry.tenant_id, name: tenantProfile?.full_name || 'Tenant', role: 'tenant' },
+    ]);
+    setChatTitle((enquiry.properties as any)?.title || 'Chat');
+    setActiveEnquiryId(enquiry.id);
+    setChatOpen(true);
   };
 
   const statusColor = (s: string) => {
@@ -97,7 +118,12 @@ export default function LandlordDashboard() {
                       </p>
                     )}
                   </div>
-                  <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="capitalize">{e.status}</Badge>
+                    <Button size="sm" variant="ghost" onClick={() => openChat(e)}>
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -105,6 +131,14 @@ export default function LandlordDashboard() {
           {enquiries.length === 0 && <p className="text-center text-muted-foreground py-8">No enquiries yet.</p>}
         </TabsContent>
       </Tabs>
+
+      <ChatModal
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        enquiryId={activeEnquiryId}
+        propertyTitle={chatTitle}
+        participants={chatParticipants}
+      />
     </div>
   );
 }
