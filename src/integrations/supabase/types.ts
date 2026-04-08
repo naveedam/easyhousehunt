@@ -132,6 +132,38 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          created_at: string
+          enquiry_id: string
+          id: string
+          message: string
+          sender_id: string
+        }
+        Insert: {
+          created_at?: string
+          enquiry_id: string
+          id?: string
+          message: string
+          sender_id: string
+        }
+        Update: {
+          created_at?: string
+          enquiry_id?: string
+          id?: string
+          message?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_enquiry_id_fkey"
+            columns: ["enquiry_id"]
+            isOneToOne: false
+            referencedRelation: "enquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -218,6 +250,7 @@ export type Database = {
           description: string | null
           furnishing: string
           id: string
+          is_featured: boolean | null
           is_instant_move_in: boolean | null
           is_verified: boolean | null
           landlord_id: string
@@ -241,6 +274,7 @@ export type Database = {
           description?: string | null
           furnishing?: string
           id?: string
+          is_featured?: boolean | null
           is_instant_move_in?: boolean | null
           is_verified?: boolean | null
           landlord_id: string
@@ -264,6 +298,7 @@ export type Database = {
           description?: string | null
           furnishing?: string
           id?: string
+          is_featured?: boolean | null
           is_instant_move_in?: boolean | null
           is_verified?: boolean | null
           landlord_id?: string
@@ -311,6 +346,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "property_images_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_properties: {
+        Row: {
+          created_at: string
+          id: string
+          property_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          property_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          property_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_properties_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
