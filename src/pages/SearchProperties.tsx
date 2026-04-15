@@ -1,104 +1,123 @@
-import { useState, useMemo } from 'react';
-import { useMapBounds } from '@/hooks/useMapBounds';
-import MapView from '@/components/map/MapView';
-import PropertyList from '@/components/map/PropertyList';
-import SearchBar, { SearchFilters, defaultSearchFilters } from '@/components/map/SearchBar';
-import MobileBottomSheet from '@/components/map/MobileBottomSheet';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import MapView from "@/components/map/MapView";
+import { useNavigate } from "react-router-dom";
+
+type Property = {
+  id: string;
+  title: string;
+  address: string;
+  bhk: number;
+  rent: number;
+  latitude: number;
+  longitude: number;
+};
 
 export default function SearchProperties() {
-  const { properties, loading, mapMoved, updateBounds, searchThisArea, fetchInBounds, bounds } = useMapBounds();
+  const navigate = useNavigate();
+
+  const [properties, setProperties] = useState<Property[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<SearchFilters>(defaultSearchFilters);
-  const isMobile = useIsMobile();
 
-  // Client-side filter on loaded properties
-  const filtered = useMemo(() => {
-    let result = properties;
-    if (filters.search) {
-      const s = filters.search.toLowerCase();
-      result = result.filter(p => p.title.toLowerCase().includes(s) || p.address.toLowerCase().includes(s));
+  const fetchProperties = async () => {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*");
+
+    if (error) {
+      console.error(error);
+      return;
     }
-    if (filters.bhk) result = result.filter(p => p.bhk === parseInt(filters.bhk));
-    if (filters.furnishing) result = result.filter(p => p.furnishing === filters.furnishing);
-    if (filters.property_type) result = result.filter(p => p.property_type === filters.property_type);
-    if (filters.min_rent) result = result.filter(p => p.rent >= parseFloat(filters.min_rent));
-    if (filters.max_rent) result = result.filter(p => p.rent <= parseFloat(filters.max_rent));
-    return result;
-  }, [properties, filters]);
 
-  const handlePropertyClick = (id: string) => {
-    setSelectedId(prev => prev === id ? null : id);
+    setProperties(data as Property[]);
   };
 
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
   return (
-    <div className="fixed inset-0 flex flex-col">
-      {/* Full-screen layout */}
-      <div className="flex-1 flex relative overflow-hidden">
-        {/* Sidebar - desktop */}
-        {!isMobile && (
-          <div className="w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col bg-background border-r border-border z-10">
-            <div className="p-3 border-b border-border">
-              <SearchBar filters={filters} onChange={setFilters} propertyCount={filtered.length} />
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <PropertyList
-                properties={filtered}
-                selectedId={selectedId}
-                onHover={setHoveredId}
-                onClick={handlePropertyClick}
-                loading={loading}
-              />
-            </div>
-          </div>
-        )}
+    <div className="flex h-screen relative">
 
-        {/* Map */}
-        <div className="flex-1 relative">
-          <MapView
-            properties={filtered}
-            selectedId={selectedId}
-            hoveredId={hoveredId}
-            onBoundsChange={updateBounds}
-            onPropertyClick={handlePropertyClick}
-          />
+      {/* FILTERS */}
+      <div className="w-[280px] bg-[#0f172a] p-4 text-white">
+        <h2 className="text-lg font-semibold mb-4">Filters</h2>
 
-          {/* Mobile search bar overlay */}
-          {isMobile && (
-            <div className="absolute top-3 left-3 right-3 z-20">
-              <SearchBar filters={filters} onChange={setFilters} propertyCount={filtered.length} />
-            </div>
-          )}
+        <input
+          placeholder="Search location"
+          className="w-full p-2 mb-3 rounded bg-[#1e293b]"
+        />
 
-          {/* Search this area button */}
-          {mapMoved && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20" style={isMobile ? { top: '80px' } : {}}>
-              <Button
-                size="sm"
-                className="glass-strong rounded-full shadow-elevated gap-2 text-xs font-heading font-semibold px-4 hover:scale-105 transition-transform"
-                onClick={searchThisArea}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Search this area
-              </Button>
-            </div>
-          )}
-        </div>
+        <select className="w-full p-2 mb-3 rounded bg-[#1e293b]">
+          <option>All BHK</option>
+          <option>1 BHK</option>
+          <option>2 BHK</option>
+          <option>3 BHK</option>
+        </select>
 
-        {/* Mobile bottom sheet */}
-        {isMobile && (
-          <MobileBottomSheet
-            properties={filtered}
-            selectedId={selectedId}
-            onHover={setHoveredId}
-            onClick={handlePropertyClick}
-            loading={loading}
-          />
-        )}
+        <input
+          placeholder="Min Rent"
+          className="w-full p-2 mb-3 rounded bg-[#1e293b]"
+        />
+
+        <input
+          placeholder="Max Rent"
+          className="w-full p-2 rounded bg-[#1e293b]"
+        />
       </div>
+
+      {/* LIST */}
+      <div className="w-[360px] bg-[#020617] p-4 overflow-y-auto">
+        <h2 className="text-white mb-4">
+          {properties.length} properties
+        </h2>
+
+        {properties.map((p) => (
+          <div
+            key={p.id}
+            onClick={() => setSelectedId(p.id)}
+            className={`p-4 rounded-xl mb-4 text-white cursor-pointer ${
+              selectedId === p.id
+                ? "bg-orange-500"
+                : "bg-[#1e293b]"
+            }`}
+          >
+            <h3 className="font-semibold">{p.title}</h3>
+            <p className="text-sm text-gray-300">{p.address}</p>
+            <p className="text-green-400 font-semibold">
+              ₹{p.rent}/mo
+            </p>
+            <p>{p.bhk} BHK</p>
+
+            {/* ✅ FIXED BUTTON */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // 🔥 IMPORTANT
+                navigate(`/property/${p.id}`);
+              }}
+              className="text-orange-400 mt-2 text-sm"
+            >
+              View Details →
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* MAP */}
+      <div className="flex-1">
+        <MapView
+          properties={properties}
+          onSelect={(id) => setSelectedId(id)}
+        />
+      </div>
+
+      {/* ✅ FIXED BUTTON */}
+      <button
+        onClick={() => navigate("/list-property")}
+        className="absolute bottom-6 right-6 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg"
+      >
+        + List Your Property
+      </button>
     </div>
   );
 }
