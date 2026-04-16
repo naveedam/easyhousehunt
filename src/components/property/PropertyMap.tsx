@@ -1,47 +1,46 @@
-import { useEffect, useRef } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
 
-interface MapProperty {
+type Property = {
   id: string;
-  title: string;
-  rent: number;
-  latitude: number | null;
-  longitude: number | null;
-}
+  latitude?: number;
+  longitude?: number;
+  title?: string;
+};
 
-interface Props {
-  properties: MapProperty[];
-  center?: [number, number];
-}
-
-export default function PropertyMap({ properties, center = [12.9716, 77.5946] }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+export default function PropertyMap({ properties = [] }: { properties?: Property[] }) {
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!mapContainer.current || mapRef.current) return;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [center[1], center[0]],
-      zoom: 12,
+    mapRef.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+      center: [77.5946, 12.9716], // Bengaluru
+      zoom: 11,
     });
 
-    const validProps = properties.filter(p => p.latitude && p.longitude);
-    validProps.forEach(p => {
-      new maplibregl.Marker()
-        .setLngLat([p.longitude!, p.latitude!])
-        .setPopup(new maplibregl.Popup().setHTML(`<strong>${p.title}</strong><br/>₹${p.rent.toLocaleString('en-IN')}/mo`))
-        .addTo(map);
+    // Add markers
+    properties.forEach((property) => {
+      if (property.latitude && property.longitude) {
+        new maplibregl.Marker()
+          .setLngLat([property.longitude, property.latitude])
+          .setPopup(
+            new maplibregl.Popup().setHTML(
+              `<div style="color:black;">${property.title || "Property"}</div>`
+            )
+          )
+          .addTo(mapRef.current);
+      }
     });
 
-    mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
-  }, [properties, center]);
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, [properties]);
 
-  return (
-    <div ref={containerRef} className="rounded-xl overflow-hidden border h-[400px] lg:h-full lg:min-h-[500px]" />
-  );
+  return <div ref={mapContainer} className="w-full h-full" />;
 }

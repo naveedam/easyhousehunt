@@ -1,123 +1,80 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import MapView from "@/components/map/MapView";
 import { useNavigate } from "react-router-dom";
-
-type Property = {
-  id: string;
-  title: string;
-  address: string;
-  bhk: number;
-  rent: number;
-  latitude: number;
-  longitude: number;
-};
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SearchProperties() {
   const navigate = useNavigate();
-
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const fetchProperties = async () => {
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*");
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setProperties(data as Property[]);
-  };
+  const [properties, setProperties] = useState<any[]>([]);
 
   useEffect(() => {
+    const fetchProperties = async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching properties:", error);
+      } else {
+        setProperties(data || []);
+      }
+    };
+
     fetchProperties();
   }, []);
 
   return (
-    <div className="flex h-screen relative">
-
-      {/* FILTERS */}
-      <div className="w-[280px] bg-[#0f172a] p-4 text-white">
-        <h2 className="text-lg font-semibold mb-4">Filters</h2>
-
-        <input
-          placeholder="Search location"
-          className="w-full p-2 mb-3 rounded bg-[#1e293b]"
-        />
-
-        <select className="w-full p-2 mb-3 rounded bg-[#1e293b]">
-          <option>All BHK</option>
-          <option>1 BHK</option>
-          <option>2 BHK</option>
-          <option>3 BHK</option>
-        </select>
-
-        <input
-          placeholder="Min Rent"
-          className="w-full p-2 mb-3 rounded bg-[#1e293b]"
-        />
-
-        <input
-          placeholder="Max Rent"
-          className="w-full p-2 rounded bg-[#1e293b]"
-        />
-      </div>
-
-      {/* LIST */}
-      <div className="w-[360px] bg-[#020617] p-4 overflow-y-auto">
-        <h2 className="text-white mb-4">
+    <div className="flex h-screen text-white">
+      {/* LEFT PANEL */}
+      <div className="w-1/3 p-4 overflow-y-auto bg-[#0b1220]">
+        <h2 className="text-xl font-semibold mb-4">
           {properties.length} properties
         </h2>
 
-        {properties.map((p) => (
-          <div
-            key={p.id}
-            onClick={() => setSelectedId(p.id)}
-            className={`p-4 rounded-xl mb-4 text-white cursor-pointer ${
-              selectedId === p.id
-                ? "bg-orange-500"
-                : "bg-[#1e293b]"
-            }`}
-          >
-            <h3 className="font-semibold">{p.title}</h3>
-            <p className="text-sm text-gray-300">{p.address}</p>
-            <p className="text-green-400 font-semibold">
-              ₹{p.rent}/mo
-            </p>
-            <p>{p.bhk} BHK</p>
+        {/* LIST PROPERTY BUTTON */}
+        <button
+          onClick={() => navigate("/add-property")} // ✅ FIXED ROUTE
+          className="bg-orange-500 px-4 py-2 rounded-lg mb-4 w-full"
+        >
+          + List Your Property
+        </button>
 
-            {/* ✅ FIXED BUTTON */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation(); // 🔥 IMPORTANT
-                navigate(`/property/${p.id}`);
-              }}
-              className="text-orange-400 mt-2 text-sm"
+        {/* PROPERTY LIST */}
+        <div className="space-y-4">
+          {properties.map((property) => (
+            <div
+              key={property.id}
+              className="bg-[#1c2538] p-4 rounded-lg"
             >
-              View Details →
-            </button>
-          </div>
-        ))}
+              <h3 className="text-lg font-semibold">
+                {property.title || `${property.bhk} BHK`}
+              </h3>
+
+              <p className="text-gray-400">
+                {property.society}
+              </p>
+
+              <p className="text-green-400 font-bold">
+                ₹{property.rent}/mo
+              </p>
+
+              <button
+                onClick={() =>
+                  navigate(`/property/${property.id}`)
+                }
+                className="text-orange-400 mt-2"
+              >
+                View Details →
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* MAP */}
-      <div className="flex-1">
-        <MapView
-          properties={properties}
-          onSelect={(id) => setSelectedId(id)}
-        />
+      {/* RIGHT SIDE (MAP PLACEHOLDER) */}
+      <div className="w-2/3 bg-black flex items-center justify-center">
+        <p className="text-gray-500">Map view (optional)</p>
       </div>
-
-      {/* ✅ FIXED BUTTON */}
-      <button
-        onClick={() => navigate("/list-property")}
-        className="absolute bottom-6 right-6 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full shadow-lg"
-      >
-        + List Your Property
-      </button>
     </div>
   );
 }

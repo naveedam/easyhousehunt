@@ -1,16 +1,18 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import SearchProperties from "./pages/SearchProperties";
-import ChatPage from "./pages/ChatPage";
+import Index from "./pages/Index";
+import PropertyDetail from "./pages/PropertyDetail";
+import AddEditProperty from "./pages/AddEditProperty";
+import NotFound from "./pages/NotFound";
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<SearchProperties />} />
-        <Route path="/chat/:id" element={<ChatPage />} />
+        <Route path="/" element={<Index />} />
+        <Route path="/property/:id" element={<PropertyDetail />} />
+        <Route path="/add-property" element={<AddEditProperty />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
-export default App;
