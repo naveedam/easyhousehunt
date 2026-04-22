@@ -1,77 +1,151 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import PropertyMap from "@/components/property/PropertyMap";
+import { useNavigate } from "react-router-dom";
 
 type Property = {
   id: string;
   title: string;
-  price: number;
-  latitude?: number;
-  longitude?: number;
+  address: string;
+  rent: number;
+  bhk: number;
+  latitude: number;
+  longitude: number;
 };
 
 export default function Index() {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedProperty, setSelectedProperty] =
+    useState<Property | null>(null);
+  const [user, setUser] = useState<any>(null);
 
+  const navigate = useNavigate();
+
+  // -----------------------------
+  // INITIAL LOAD
+  // -----------------------------
   useEffect(() => {
-    // TEMP MOCK DATA (replace with Supabase later)
-    setProperties([
-      {
-        id: "1",
-        title: "Test Property with image",
-        price: 10000,
-        latitude: 12.9716,
-        longitude: 77.5946,
-      },
-      {
-        id: "2",
-        title: "2 BHK – Emerald Grandeur",
-        price: 25000,
-        latitude: 12.9616,
-        longitude: 77.5846,
-      },
-      {
-        id: "3",
-        title: "3BHK – semi furnished",
-        price: 400000,
-        latitude: 12.9816,
-        longitude: 77.6046,
-      },
-    ]);
+    fetchUser();
+    fetchProperties();
   }, []);
 
+  // -----------------------------
+  // FETCH USER
+  // -----------------------------
+  const fetchUser = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    setUser(user);
+  };
+
+  // -----------------------------
+  // FETCH PROPERTIES
+  // -----------------------------
+  const fetchProperties = async () => {
+    const { data, error } = await (supabase as any)
+      .from("properties")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("❌ Error fetching properties:", error);
+      return;
+    }
+
+    const cleanData = (data || []).filter(
+      (p: Property) => p.latitude && p.longitude
+    );
+
+    setProperties(cleanData);
+
+    // ✅ Set first property as default selection
+    if (cleanData.length > 0) {
+      setSelectedProperty(cleanData[0]);
+    }
+
+    console.log("✅ Properties loaded:", cleanData.length);
+  };
+
+  // -----------------------------
+  // HANDLE CLICK
+  // -----------------------------
+  const handleSelect = (property: Property) => {
+    console.log("🟢 Selected:", property.title);
+    setSelectedProperty(property);
+  };
+
   return (
-    <div className="flex h-screen bg-[#0B1220] text-white">
+    <div className="flex h-screen bg-[#020617] text-white">
       
       {/* LEFT PANEL */}
-      <div className="w-[420px] p-4 overflow-y-auto border-r border-gray-800">
-        <h2 className="text-xl mb-4">{properties.length} properties</h2>
+      <div className="w-[420px] overflow-y-auto p-4 border-r border-gray-800">
 
-        <Link to="/add-property">
-          <button className="w-full bg-orange-500 hover:bg-orange-600 py-3 rounded mb-4">
-            + List Your Property
-          </button>
-        </Link>
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl">
+            {properties.length} properties
+          </h2>
 
-        <div className="space-y-4">
-          {properties.map((p) => (
-            <div key={p.id} className="bg-[#1E293B] p-4 rounded">
-              <h3 className="font-semibold">{p.title}</h3>
-              <p className="text-green-400">₹{p.price}/mo</p>
-
-              <Link to={`/property/${p.id}`}>
-                <p className="text-orange-400 mt-2 cursor-pointer">
-                  View Details →
-                </p>
-              </Link>
-            </div>
-          ))}
+          {user && (
+            <button
+              onClick={() => navigate("/chat")}
+              className="bg-green-600 px-3 py-1 rounded text-sm"
+            >
+              Inbox
+            </button>
+          )}
         </div>
+
+        {/* ADD PROPERTY */}
+        <button
+          onClick={() => navigate("/add-property")}
+          className="w-full bg-orange-500 hover:bg-orange-600 p-3 mb-4 rounded"
+        >
+          + List Your Property
+        </button>
+
+        {/* PROPERTY LIST */}
+        {properties.map((p) => {
+          const isSelected = selectedProperty?.id === p.id;
+
+          return (
+            <div
+              key={p.id}
+              onClick={() => handleSelect(p)}
+              className={`p-4 mb-4 rounded cursor-pointer transition
+                ${
+                  isSelected
+                    ? "bg-[#334155] border border-green-400"
+                    : "bg-[#1e293b] hover:bg-[#334155]"
+                }
+              `}
+            >
+              <h3 className="text-lg font-semibold">{p.title}</h3>
+
+              <p className="text-green-400">
+                ₹{p.rent}/mo
+              </p>
+
+              <p className="text-sm text-gray-400">
+                {p.bhk} BHK • {p.address}
+              </p>
+
+              <p className="text-orange-400 mt-2">
+                View Details →
+              </p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* RIGHT PANEL - MAP */}
-      <div className="flex-1 h-screen">
-        <PropertyMap properties={properties} />
+      {/* MAP */}
+      <div className="flex-1">
+        <PropertyMap
+          properties={properties}
+          selectedProperty={selectedProperty}
+        />
       </div>
     </div>
   );
