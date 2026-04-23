@@ -1,112 +1,139 @@
-import { useState, useRef, useEffect } from 'react';
-import { useChat } from '@/hooks/useChat';
-import { useAuth } from '@/hooks/useAuth';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Send, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-interface ChatModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  enquiryId: string | null;
-  propertyTitle?: string;
-  participants?: { id: string; name: string; role: string }[];
-}
+export default function ChatModal({
+  propertyId,
+  receiverId,
+  onClose,
+}: {
+  propertyId: string;
+  receiverId: string;
+  onClose: () => void;
+}) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [user, setUser] = useState<any>(null);
 
-export default function ChatModal({ open, onOpenChange, enquiryId, propertyTitle, participants = [] }: ChatModalProps) {
-  const { user } = useAuth();
-  const { messages, loading, sendMessage } = useChat(enquiryId);
-  const [text, setText] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
-
+  // ----------------------------
+  // INIT
+  // ----------------------------
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+
+    fetchMessages();
+  }, []);
+
+  // ----------------------------
+  // FETCH MESSAGES
+  // ----------------------------
+  const fetchMessages = async () => {
+    const { data, error } = await (supabase as any)
+      .from("messages")
+      .select("*")
+      .eq("property_id", propertyId)
+      .order("created_at", { ascending: true });
+
+    if (!error) setMessages(data || []);
+  };
+
+  // ----------------------------
+  // SEND MESSAGE
+  // ----------------------------
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !user) return;
+
+    const payload = {
+      property_id: propertyId,
+      sender_id: user.id,
+      receiver_id: receiverId,
+      message: newMessage,
+    };
+
+    const { error } = await (supabase as any)
+      .from("messages")
+      .insert([payload]);
+
+    if (!error) {
+      setNewMessage("");
+      fetchMessages();
     }
-  }, [messages]);
-
-  const handleSend = async () => {
-    if (!text.trim()) return;
-    await sendMessage(text);
-    setText('');
   };
 
-  const getSenderInfo = (senderId: string) => {
-    const p = participants.find(p => p.id === senderId);
-    return p || { name: senderId === user?.id ? 'You' : 'Other', role: 'unknown' };
-  };
+  // ----------------------------
+  // REALTIME (optional but useful)
+  // ----------------------------
+  useEffect(() => {
+    const channel = supabase
+      .channel("chat")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          if (payload.new.property_id === propertyId) {
+            setMessages((prev) => [...prev, payload.new]);
+          }
+        }
+      )
+      .subscribe();
 
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // ----------------------------
+  // UI
+  // ----------------------------
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col p-0">
-        <DialogHeader className="p-4 pb-2 border-b">
-          <DialogTitle className="font-heading text-base">
-            {propertyTitle || 'Chat'}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Private conversation · Messages are not shared publicly
-          </DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+      <div className="bg-[#020617] w-full max-w-md p-4 rounded">
 
-        <ScrollArea className="flex-1 px-4 py-2 min-h-[300px] max-h-[50vh]" ref={scrollRef}>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : messages.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Start the conversation!</p>
-          ) : (
-            <div className="space-y-3">
-              {messages.map(msg => {
-                const isMe = msg.sender_id === user?.id;
-                const sender = getSenderInfo(msg.sender_id);
-                return (
-                  <div key={msg.id} className={cn('flex flex-col', isMe ? 'items-end' : 'items-start')}>
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="text-[10px] text-muted-foreground">{sender.name}</span>
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-auto">
-                        {sender.role}
-                      </Badge>
-                    </div>
-                    <div
-                      className={cn(
-                        'rounded-xl px-3 py-2 max-w-[80%] text-sm',
-                        isMe
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-foreground'
-                      )}
-                    >
-                      {msg.message}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </ScrollArea>
-
-        <div className="p-3 border-t flex gap-2">
-          <Input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Type a message..."
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            className="flex-1"
-          />
-          <Button size="icon" onClick={handleSend} disabled={!text.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
+        {/* HEADER */}
+        <div className="flex justify-between mb-4">
+          <h2>Chat</h2>
+          <button onClick={onClose}>✕</button>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* MESSAGES */}
+        <div className="h-80 overflow-y-auto mb-4">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`mb-2 ${
+                msg.sender_id === user?.id
+                  ? "text-right"
+                  : "text-left"
+              }`}
+            >
+              <span className="bg-[#1e293b] px-3 py-2 rounded inline-block">
+                {msg.message}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* INPUT */}
+        <div className="flex gap-2">
+          <input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            className="flex-1 p-2 bg-[#1e293b] rounded"
+            placeholder="Type message..."
+          />
+          <button
+            onClick={sendMessage}
+            className="bg-orange-500 px-4 rounded"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

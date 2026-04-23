@@ -1,271 +1,238 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import AuthModal from "@/components/ui/AuthModal";
+
+const SOCIETIES = [
+  "Karle Zenith Residences",
+  "LNT Raintree Boulevard",
+  "Embassy Lake Terraces",
+  "Brigade Northridge",
+  "Sobha City",
+  "Godrej Woodman Estate",
+  "RMZ Latitude",
+  "Prestige Misty Waters",
+  "SNN Clermont",
+  "Nikoo Homes",
+  "Icon North",
+  "Other",
+];
 
 export default function ListingWizard() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-
-  const SOCIETIES = [
-    "Karle Zenith Residences",
-    "Prestige Misty Water",
-    "Embassy Lake Terraces",
-    "LNT Raintree Boulevard",
-    "Godrej Woodman Estates",
-    "RMZ Latitude",
-    "SNN Clermont",
-    "Sobha City",
-    "Other",
-  ];
-
-  const [selectedSociety, setSelectedSociety] = useState("");
-  const [customSociety, setCustomSociety] = useState("");
-
   const [form, setForm] = useState({
     title: "",
-    bhk: "",
-    area: "",
+    society: "",
+    customSociety: "",
+    address: "",
     rent: "",
     deposit: "",
+    bhk: "",
+    area_sqft: "",
     furnishing: "",
     description: "",
-    media: [] as File[],
   });
 
-  const update = (key: string, value: any) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // 🔥 NEW
+  const [showAuth, setShowAuth] = useState(false);
+
+  // ----------------------------
+  // INPUT HANDLER
+  // ----------------------------
+  const handleChange = (e: any) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // ✅ STEP VALIDATION
-  const validateStep = () => {
-    if (step === 1) {
-      if (!form.title || !selectedSociety) return "Enter title & society";
-      if (selectedSociety === "Other" && !customSociety)
-        return "Enter society name";
+  // ----------------------------
+  // GEOCODE
+  // ----------------------------
+  const geocodeAddress = async (address: string) => {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        address
+      )}`,
+      { headers: { "User-Agent": "easyhousehunt-app" } }
+    );
+
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+      throw new Error("Geocoding failed");
     }
 
-    if (step === 2) {
-      if (!form.bhk || !form.area || !form.rent || !form.deposit)
-        return "Fill all property details";
-    }
-
-    if (step === 3 && !form.furnishing) return "Select furnishing";
-    if (step === 4 && !form.description) return "Add description";
-
-    return null;
+    return {
+      lat: parseFloat(data[0].lat),
+      lng: parseFloat(data[0].lon),
+    };
   };
 
-  const next = () => {
-    const err = validateStep();
-    if (err) return alert(err);
-    setStep((s) => s + 1);
-  };
-
-  const back = () => setStep((s) => s - 1);
-
-  // 🔥 FIXED UPLOAD FUNCTION
-  const uploadFiles = async () => {
-    if (!form.media.length) return [];
+  // ----------------------------
+  // FILE UPLOAD
+  // ----------------------------
+  const uploadFiles = async (userId: string) => {
+    if (!files || files.length === 0) return [];
 
     const uploadedUrls: string[] = [];
 
-    for (const file of form.media) {
-      try {
-        const fileName = `${Date.now()}-${file.name}`;
+    for (const file of Array.from(files)) {
+      const filePath = `${userId}/${Date.now()}-${file.name}`;
 
-        console.log("Uploading:", fileName);
+      const { error } = await supabase.storage
+        .from("property-media")
+        .upload(filePath, file);
 
-        const { error: uploadError } = await supabase.storage
-          .from("property-media")
-          .upload(fileName, file);
+      if (error) continue;
 
-        if (uploadError) {
-          console.error("UPLOAD ERROR:", uploadError);
-          continue;
-        }
+      const { data } = supabase.storage
+        .from("property-media")
+        .getPublicUrl(filePath);
 
-        const { data } = supabase.storage
-          .from("property-media")
-          .getPublicUrl(fileName);
-
-        console.log("UPLOADED URL:", data.publicUrl);
-
-        uploadedUrls.push(data.publicUrl);
-      } catch (err) {
-        console.error("UPLOAD FAILED:", err);
-      }
+      uploadedUrls.push(data.publicUrl);
     }
 
     return uploadedUrls;
   };
 
+  // ----------------------------
+  // SUBMIT (FIXED AUTH FLOW)
+  // ----------------------------
   const handleSubmit = async () => {
     setLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert("Please login first");
-      setLoading(false);
-      return;
+      // 🔥 FIX: SHOW MODAL INSTEAD OF REDIRECT
+      if (!user) {
+        setShowAuth(true);
+        setLoading(false);
+        return;
+      }
+
+      // VALIDATION
+      if (!form.title || !form.address || !form.rent || !form.bhk) {
+        alert("Please fill all required fields");
+        setLoading(false);
+        return;
+      }
+
+      const finalSociety =
+        form.society === "Other"
+          ? form.customSociety
+          : form.society;
+
+      const fullAddress = [
+        finalSociety,
+        form.address,
+        "Bangalore",
+        "Karnataka",
+        "India",
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      let coords;
+      try {
+        coords = await geocodeAddress(fullAddress);
+      } catch {
+        alert("Please enter a more precise address");
+        setLoading(false);
+        return;
+      }
+
+      // small jitter
+      const jitter = () => (Math.random() - 0.5) * 0.0005;
+      coords.lat += jitter();
+      coords.lng += jitter();
+
+      const mediaUrls = await uploadFiles(user.id);
+
+      const payload = {
+        title: form.title,
+        address: `${finalSociety}, ${form.address}`,
+        rent: Number(form.rent),
+        bhk: Number(form.bhk),
+        description: form.description,
+        deposit: Number(form.deposit) || 0,
+        furnishing: form.furnishing,
+        area_sqft: Number(form.area_sqft) || 0,
+        amenities: [],
+        media_urls: mediaUrls,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        landlord_id: user.id,
+      };
+
+      const { error } = await (supabase as any)
+        .from("properties")
+        .insert([payload]);
+
+      if (error) {
+        alert("Error saving property");
+        setLoading(false);
+        return;
+      }
+
+      alert("Property saved!");
+      navigate("/");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
     }
-
-    const address =
-      selectedSociety === "Other" ? customSociety : selectedSociety;
-
-    // 🔥 Upload media first
-    const mediaUrls = await uploadFiles();
-
-    console.log("FINAL MEDIA URLS:", mediaUrls);
-
-    const { error } = await (supabase as any)
-      .from("properties")
-      .insert([
-        {
-          title: form.title,
-          address,
-          landlord_id: user.id,
-          bhk: Number(form.bhk),
-          rent: Number(form.rent),
-          deposit: Number(form.deposit),
-          area_sqft: Number(form.area),
-          furnishing: form.furnishing,
-          description: form.description,
-          media_urls: mediaUrls.length ? mediaUrls : null,
-        },
-      ]);
 
     setLoading(false);
-
-    if (error) {
-      console.error("INSERT ERROR:", error);
-      alert("Error saving property");
-      return;
-    }
-
-    alert("Property listed successfully 🚀");
-    navigate("/");
   };
 
+  // ----------------------------
+  // UI
+  // ----------------------------
   return (
-    <div className="h-screen flex items-center justify-center bg-[#020617] text-white">
-      <div className="bg-[#1e293b] p-6 rounded-xl w-[650px]">
+    <div className="max-w-xl mx-auto p-6 text-white">
+      <h1 className="text-2xl mb-6">List Your Property</h1>
 
-        <h2 className="text-xl font-semibold mb-4">
-          List Your Property (Step {step}/5)
-        </h2>
+      <input name="title" value={form.title} onChange={handleChange} placeholder="Property Title" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
 
-        {/* STEP 1 */}
-        {step === 1 && (
-          <>
-            <p>Property Title</p>
-            <input
-              className="w-full p-2 mb-3 bg-[#020617]"
-              onChange={(e) => update("title", e.target.value)}
-            />
+      <select name="society" value={form.society} onChange={handleChange} className="w-full p-3 mb-4 bg-[#1e293b] rounded">
+        <option value="">Select Society</option>
+        {SOCIETIES.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
 
-            <p>Society</p>
-            <select
-              className="w-full p-2 mb-3 bg-[#020617]"
-              onChange={(e) => setSelectedSociety(e.target.value)}
-            >
-              <option value="">Select</option>
-              {SOCIETIES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+      {form.society === "Other" && (
+        <input name="customSociety" value={form.customSociety} onChange={handleChange} placeholder="Enter Society Name" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      )}
 
-            {selectedSociety === "Other" && (
-              <input
-                placeholder="Enter society"
-                className="w-full p-2 mb-3 bg-[#020617]"
-                onChange={(e) => setCustomSociety(e.target.value)}
-              />
-            )}
+      <input name="address" value={form.address} onChange={handleChange} placeholder="Full Address" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      <input name="rent" value={form.rent} onChange={handleChange} placeholder="Rent (₹ / month)" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      <input name="deposit" value={form.deposit} onChange={handleChange} placeholder="Deposit (₹)" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      <input name="bhk" value={form.bhk} onChange={handleChange} placeholder="BHK" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      <input name="area_sqft" value={form.area_sqft} onChange={handleChange} placeholder="Area (sq ft)" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      <input name="furnishing" value={form.furnishing} onChange={handleChange} placeholder="Furnishing" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
 
-            <button onClick={next} className="bg-orange-500 px-4 py-2 rounded">
-              Next
-            </button>
-          </>
-        )}
+      <textarea name="description" value={form.description} onChange={handleChange} placeholder="Description" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
 
-        {/* STEP 2 */}
-        {step === 2 && (
-          <>
-            <p>BHK</p>
-            <input className="w-full p-2 mb-2 bg-[#020617]" onChange={(e)=>update("bhk",e.target.value)} />
+      <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="mb-4" />
 
-            <p>Area (sqft)</p>
-            <input className="w-full p-2 mb-2 bg-[#020617]" onChange={(e)=>update("area",e.target.value)} />
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={loading}
+        className={`w-full p-3 rounded ${loading ? "bg-gray-500" : "bg-green-600 hover:bg-green-700"}`}
+      >
+        {loading ? "Saving..." : "Save Property"}
+      </button>
 
-            <p>Rent (₹)</p>
-            <input className="w-full p-2 mb-2 bg-[#020617]" onChange={(e)=>update("rent",e.target.value)} />
-
-            <p>Deposit (₹)</p>
-            <input className="w-full p-2 mb-2 bg-[#020617]" onChange={(e)=>update("deposit",e.target.value)} />
-
-            <button onClick={back}>Back</button>
-            <button onClick={next} className="bg-orange-500 px-4 py-2 ml-2">Next</button>
-          </>
-        )}
-
-        {/* STEP 3 */}
-        {step === 3 && (
-          <>
-            <p>Furnishing</p>
-            <select
-              className="w-full p-2 mb-3 bg-[#020617]"
-              onChange={(e)=>update("furnishing",e.target.value)}
-            >
-              <option value="">Select</option>
-              <option>Fully Furnished</option>
-              <option>Semi Furnished</option>
-              <option>Unfurnished</option>
-            </select>
-
-            <button onClick={back}>Back</button>
-            <button onClick={next} className="bg-orange-500 px-4 py-2 ml-2">Next</button>
-          </>
-        )}
-
-        {/* STEP 4 */}
-        {step === 4 && (
-          <>
-            <p>Description</p>
-            <textarea
-              className="w-full p-2 mb-3 bg-[#020617]"
-              onChange={(e)=>update("description",e.target.value)}
-            />
-
-            <button onClick={back}>Back</button>
-            <button onClick={next} className="bg-orange-500 px-4 py-2 ml-2">Next</button>
-          </>
-        )}
-
-        {/* STEP 5 */}
-        {step === 5 && (
-          <>
-            <p>Upload Images / Videos (Optional)</p>
-            <input
-              type="file"
-              multiple
-              onChange={(e)=>update("media", Array.from(e.target.files || []))}
-            />
-
-            <button onClick={back}>Back</button>
-            <button
-              onClick={handleSubmit}
-              className="bg-green-500 px-4 py-2 ml-2"
-            >
-              {loading ? "Publishing..." : "Publish 🚀"}
-            </button>
-          </>
-        )}
-      </div>
+      {/* 🔥 AUTH MODAL */}
+      {showAuth && (
+        <AuthModal onClose={() => setShowAuth(false)} />
+      )}
     </div>
   );
 }
