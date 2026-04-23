@@ -60,7 +60,7 @@ export default function Index() {
 
     setProperties(cleanData);
 
-    // ✅ Set first property as default selection
+    // default selection
     if (cleanData.length > 0) {
       setSelectedProperty(cleanData[0]);
     }
@@ -69,7 +69,7 @@ export default function Index() {
   };
 
   // -----------------------------
-  // HANDLE CLICK
+  // HANDLE SELECT (MAP SYNC)
   // -----------------------------
   const handleSelect = (property: Property) => {
     console.log("🟢 Selected:", property.title);
@@ -78,7 +78,7 @@ export default function Index() {
 
   return (
     <div className="flex h-screen bg-[#020617] text-white">
-      
+
       {/* LEFT PANEL */}
       <div className="w-[420px] overflow-y-auto p-4 border-r border-gray-800">
 
@@ -132,7 +132,14 @@ export default function Index() {
                 {p.bhk} BHK • {p.address}
               </p>
 
-              <p className="text-orange-400 mt-2">
+              {/* 🔥 VIEW DETAILS FIX */}
+              <p
+                onClick={(e) => {
+                  e.stopPropagation(); // prevent map selection trigger
+                  navigate(`/property/${p.id}`);
+                }}
+                className="text-orange-400 mt-2 hover:underline"
+              >
                 View Details →
               </p>
             </div>
