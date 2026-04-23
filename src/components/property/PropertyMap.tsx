@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { useNavigate } from "react-router-dom";
 
 type Property = {
   id: string;
@@ -22,9 +23,10 @@ export default function PropertyMap({
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const navigate = useNavigate();
 
   // -----------------------------
-  // INIT MAP (RUN ONCE)
+  // INIT MAP
   // -----------------------------
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -32,15 +34,13 @@ export default function PropertyMap({
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      center: [77.5946, 12.9716], // Bangalore default
+      center: [77.5946, 12.9716],
       zoom: 11,
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");
 
     mapRef.current = map;
-
-    console.log("🗺️ Map initialized");
   }, []);
 
   // -----------------------------
@@ -48,8 +48,6 @@ export default function PropertyMap({
   // -----------------------------
   useEffect(() => {
     if (!mapRef.current) return;
-
-    console.log("📍 Rendering markers:", properties.length);
 
     // clear old markers
     markersRef.current.forEach((m) => m.remove());
@@ -60,8 +58,8 @@ export default function PropertyMap({
 
       const isSelected = selectedProperty?.id === p.id;
 
-      // marker element
       const el = document.createElement("div");
+
       el.style.padding = "6px 10px";
       el.style.borderRadius = "999px";
       el.style.fontSize = "12px";
@@ -69,15 +67,20 @@ export default function PropertyMap({
       el.style.cursor = "pointer";
 
       if (isSelected) {
-        el.style.background = "#22c55e"; // green
+        el.style.background = "#22c55e";
         el.style.color = "#000";
         el.style.boxShadow = "0 0 12px rgba(34,197,94,0.9)";
         el.innerText = `₹${Math.round(p.rent / 1000)}k • Selected`;
       } else {
-        el.style.background = "#22d3ee"; // cyan
+        el.style.background = "#22d3ee";
         el.style.color = "#000";
         el.innerText = `₹${Math.round(p.rent / 1000)}k`;
       }
+
+      // 🔥 CLICK → OPEN DETAILS
+      el.addEventListener("click", () => {
+        navigate(`/property/${p.id}`);
+      });
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([p.longitude, p.latitude])
@@ -85,17 +88,13 @@ export default function PropertyMap({
 
       markersRef.current.push(marker);
     });
-
-    console.log("✅ Markers rendered:", markersRef.current.length);
   }, [properties, selectedProperty]);
 
   // -----------------------------
-  // FLY TO SELECTED PROPERTY
+  // FLY TO SELECTED
   // -----------------------------
   useEffect(() => {
     if (!mapRef.current || !selectedProperty) return;
-
-    console.log("✈️ Flying to:", selectedProperty.title);
 
     mapRef.current.flyTo({
       center: [
@@ -108,39 +107,28 @@ export default function PropertyMap({
   }, [selectedProperty]);
 
   // -----------------------------
-  // AUTO FIT (FIRST LOAD ONLY)
+  // AUTO FIT
   // -----------------------------
   useEffect(() => {
     if (!mapRef.current || properties.length === 0) return;
-
-    if (selectedProperty) return; // don't override user selection
+    if (selectedProperty) return;
 
     const bounds = new maplibregl.LngLatBounds();
 
     properties.forEach((p) => {
-      if (p.latitude && p.longitude) {
-        bounds.extend([p.longitude, p.latitude]);
-      }
+      bounds.extend([p.longitude, p.latitude]);
     });
 
     mapRef.current.fitBounds(bounds, {
       padding: 80,
       duration: 1000,
     });
-
-    console.log("🧭 Auto-fit applied");
   }, [properties]);
 
-  // -----------------------------
-  // UI
-  // -----------------------------
   return (
     <div
       ref={mapContainer}
-      style={{
-        width: "100%",
-        height: "100%", // 🔥 critical fix for blank map
-      }}
+      style={{ width: "100%", height: "100%" }}
     />
   );
 }
