@@ -37,19 +37,13 @@ export default function ListingWizard() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔥 NEW
+  // ✅ NEW
   const [showAuth, setShowAuth] = useState(false);
 
-  // ----------------------------
-  // INPUT HANDLER
-  // ----------------------------
   const handleChange = (e: any) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // ----------------------------
-  // GEOCODE
-  // ----------------------------
   const geocodeAddress = async (address: string) => {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -70,9 +64,6 @@ export default function ListingWizard() {
     };
   };
 
-  // ----------------------------
-  // FILE UPLOAD
-  // ----------------------------
   const uploadFiles = async (userId: string) => {
     if (!files || files.length === 0) return [];
 
@@ -103,19 +94,18 @@ export default function ListingWizard() {
   const handleSubmit = async () => {
     setLoading(true);
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // 🔥 FIX
+    if (!user) {
+      setShowAuth(true);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      // 🔥 FIX: SHOW MODAL INSTEAD OF REDIRECT
-      if (!user) {
-        setShowAuth(true);
-        setLoading(false);
-        return;
-      }
-
-      // VALIDATION
       if (!form.title || !form.address || !form.rent || !form.bhk) {
         alert("Please fill all required fields");
         setLoading(false);
@@ -146,7 +136,6 @@ export default function ListingWizard() {
         return;
       }
 
-      // small jitter
       const jitter = () => (Math.random() - 0.5) * 0.0005;
       coords.lat += jitter();
       coords.lng += jitter();
@@ -189,9 +178,6 @@ export default function ListingWizard() {
     setLoading(false);
   };
 
-  // ----------------------------
-  // UI
-  // ----------------------------
   return (
     <div className="max-w-xl mx-auto p-6 text-white">
       <h1 className="text-2xl mb-6">List Your Property</h1>
@@ -231,7 +217,13 @@ export default function ListingWizard() {
 
       {/* 🔥 AUTH MODAL */}
       {showAuth && (
-        <AuthModal onClose={() => setShowAuth(false)} />
+        <AuthModal
+          onClose={() => setShowAuth(false)}
+          onSuccess={() => {
+            setShowAuth(false);
+            handleSubmit();
+          }}
+        />
       )}
     </div>
   );
