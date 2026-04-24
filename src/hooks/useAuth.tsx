@@ -16,6 +16,7 @@ interface AuthContextType {
   loading: boolean;
   roles: UserRole[];
   profile: Profile | null;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
 }
@@ -30,66 +31,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const fetchUserData = async (userId: string) => {
-    const rolesRes: any = await supabase
+    const { data: rolesData } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
 
-    const profileRes: any = await supabase
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("full_name, phone, avatar_url")
       .eq("user_id", userId)
       .single();
 
-    if (rolesRes?.data) {
-      setRoles(rolesRes.data.map((r: any) => r.role));
+    if (rolesData) {
+      setRoles(rolesData.map((r: any) => r.role as UserRole));
     }
 
-    if (profileRes?.data) {
-      setProfile(profileRes.data);
+    if (profileData) {
+      setProfile(profileData);
     }
   };
 
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        console.log("🔐 AUTH EVENT:", _event);
+    // ✅ Handle OAuth redirect + existing session
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
 
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          console.log("✅ LOGGED IN USER:", session.user.email);
-
-          await fetchUserData(session.user.id);
-        } else {
-          setRoles([]);
-          setProfile(null);
-        }
-
-        setLoading(false);
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        await fetchUserData(data.session.user.id);
+        console.log("✅ Session restored:", data.session.user.email);
       }
-    );
 
-    supabase.auth.getSession().then((res: any) => {
-      const session = res?.data?.session;
+      setLoading(false);
+    };
 
+    init();
+
+    // ✅ Listen to auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        console.log("♻️ RESTORED USER:", session.user.email);
-
-        fetchUserData(session.user.id);
+        await fetchUserData(session.user.id);
+      } else {
+        setRoles([]);
+        setProfile(null);
       }
 
       setLoading(false);
     });
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
+
+  const signInWithGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin, // ✅ CRITICAL
+      },
+    });
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -105,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         roles,
         profile,
+        signInWithGoogle,
         signOut,
         hasRole,
       }}
