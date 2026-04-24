@@ -1,230 +1,263 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import AuthModal from "@/components/ui/AuthModal";
 
-const SOCIETIES = [
-  "Karle Zenith Residences",
-  "LNT Raintree Boulevard",
-  "Embassy Lake Terraces",
-  "Brigade Northridge",
-  "Sobha City",
-  "Godrej Woodman Estate",
-  "RMZ Latitude",
-  "Prestige Misty Waters",
-  "SNN Clermont",
-  "Nikoo Homes",
-  "Icon North",
-  "Other",
-];
-
 export default function ListingWizard() {
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const [form, setForm] = useState({
-    title: "",
-    society: "",
-    customSociety: "",
-    address: "",
-    rent: "",
-    deposit: "",
-    bhk: "",
-    area_sqft: "",
-    furnishing: "",
-    description: "",
-  });
-
-  const [files, setFiles] = useState<FileList | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // ✅ NEW
+  const [step, setStep] = useState(1);
   const [showAuth, setShowAuth] = useState(false);
 
-  const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  // -----------------------------
+  // FORM STATE
+  // -----------------------------
+  const [title, setTitle] = useState("");
+  const [address, setAddress] = useState("");
+  const [rent, setRent] = useState("");
+  const [deposit, setDeposit] = useState("");
+  const [bhk, setBhk] = useState("");
+  const [area, setArea] = useState("");
+  const [furnishing, setFurnishing] = useState("");
+  const [description, setDescription] = useState("");
 
-  const geocodeAddress = async (address: string) => {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        address
-      )}`,
-      { headers: { "User-Agent": "easyhousehunt-app" } }
-    );
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
-    const data = await res.json();
-
-    if (!data || data.length === 0) {
-      throw new Error("Geocoding failed");
-    }
-
-    return {
-      lat: parseFloat(data[0].lat),
-      lng: parseFloat(data[0].lon),
-    };
-  };
-
-  const uploadFiles = async (userId: string) => {
-    if (!files || files.length === 0) return [];
-
-    const uploadedUrls: string[] = [];
-
-    for (const file of Array.from(files)) {
-      const filePath = `${userId}/${Date.now()}-${file.name}`;
-
-      const { error } = await supabase.storage
-        .from("property-media")
-        .upload(filePath, file);
-
-      if (error) continue;
-
-      const { data } = supabase.storage
-        .from("property-media")
-        .getPublicUrl(filePath);
-
-      uploadedUrls.push(data.publicUrl);
-    }
-
-    return uploadedUrls;
-  };
-
-  // ----------------------------
-  // SUBMIT (FIXED AUTH FLOW)
-  // ----------------------------
-  const handleSubmit = async () => {
-    setLoading(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // 🔥 FIX
-    if (!user) {
-      setShowAuth(true);
-      setLoading(false);
+  // -----------------------------
+  // GEOCODE ADDRESS
+  // -----------------------------
+  const geocodeAddress = async () => {
+    if (!address) {
+      alert("Please enter address first");
       return;
     }
 
+    console.log("🌍 Geocoding:", address);
+
     try {
-      if (!form.title || !form.address || !form.rent || !form.bhk) {
-        alert("Please fill all required fields");
-        setLoading(false);
-        return;
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          address
+        )}`
+      );
+
+      const data = await res.json();
+
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+
+        setLatitude(lat);
+        setLongitude(lon);
+
+        console.log("📍 Coordinates:", lat, lon);
+      } else {
+        alert("Could not find location");
       }
-
-      const finalSociety =
-        form.society === "Other"
-          ? form.customSociety
-          : form.society;
-
-      const fullAddress = [
-        finalSociety,
-        form.address,
-        "Bangalore",
-        "Karnataka",
-        "India",
-      ]
-        .filter(Boolean)
-        .join(", ");
-
-      let coords;
-      try {
-        coords = await geocodeAddress(fullAddress);
-      } catch {
-        alert("Please enter a more precise address");
-        setLoading(false);
-        return;
-      }
-
-      const jitter = () => (Math.random() - 0.5) * 0.0005;
-      coords.lat += jitter();
-      coords.lng += jitter();
-
-      const mediaUrls = await uploadFiles(user.id);
-
-      const payload = {
-        title: form.title,
-        address: `${finalSociety}, ${form.address}`,
-        rent: Number(form.rent),
-        bhk: Number(form.bhk),
-        description: form.description,
-        deposit: Number(form.deposit) || 0,
-        furnishing: form.furnishing,
-        area_sqft: Number(form.area_sqft) || 0,
-        amenities: [],
-        media_urls: mediaUrls,
-        latitude: coords.lat,
-        longitude: coords.lng,
-        landlord_id: user.id,
-      };
-
-      const { error } = await (supabase as any)
-        .from("properties")
-        .insert([payload]);
-
-      if (error) {
-        alert("Error saving property");
-        setLoading(false);
-        return;
-      }
-
-      alert("Property saved!");
-      navigate("/");
     } catch (err) {
-      console.error(err);
-      alert("Something went wrong");
+      console.error("❌ Geocode error:", err);
     }
-
-    setLoading(false);
   };
 
+  // -----------------------------
+  // SAVE PROPERTY
+  // -----------------------------
+  const handleSave = async () => {
+    console.log("🟡 Save clicked");
+
+    if (!user) {
+      console.log("🔴 Not logged in → show modal");
+      setShowAuth(true);
+      return;
+    }
+
+    if (!latitude || !longitude) {
+      alert("Please fetch location from address");
+      return;
+    }
+
+    console.log("🟢 Saving as:", user.email);
+
+    const { data, error } = await (supabase as any)
+      .from("properties")
+      .insert([
+        {
+          title,
+          address,
+          rent: Number(rent),
+          deposit: Number(deposit),
+          bhk: Number(bhk),
+          area: Number(area),
+          furnishing,
+          description,
+          latitude,
+          longitude,
+          user_id: user.id,
+        },
+      ]);
+
+    if (error) {
+      console.error("❌ Save error:", error);
+      alert(error.message);
+      return;
+    }
+
+    console.log("✅ Property saved:", data);
+    alert("Property listed successfully!");
+
+    // Reset form
+    setStep(1);
+    setTitle("");
+    setAddress("");
+    setRent("");
+    setDeposit("");
+    setBhk("");
+    setArea("");
+    setFurnishing("");
+    setDescription("");
+    setLatitude(null);
+    setLongitude(null);
+  };
+
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
     <div className="max-w-xl mx-auto p-6 text-white">
       <h1 className="text-2xl mb-6">List Your Property</h1>
 
-      <input name="title" value={form.title} onChange={handleChange} placeholder="Property Title" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      {/* STEP 1 */}
+      {step === 1 && (
+        <>
+          <input
+            placeholder="Title (e.g. 3BHK in Hebbal)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
 
-      <select name="society" value={form.society} onChange={handleChange} className="w-full p-3 mb-4 bg-[#1e293b] rounded">
-        <option value="">Select Society</option>
-        {SOCIETIES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-
-      {form.society === "Other" && (
-        <input name="customSociety" value={form.customSociety} onChange={handleChange} placeholder="Enter Society Name" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+          <button
+            onClick={() => setStep(2)}
+            className="w-full bg-blue-600 p-3 rounded"
+          >
+            Next
+          </button>
+        </>
       )}
 
-      <input name="address" value={form.address} onChange={handleChange} placeholder="Full Address" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
-      <input name="rent" value={form.rent} onChange={handleChange} placeholder="Rent (₹ / month)" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
-      <input name="deposit" value={form.deposit} onChange={handleChange} placeholder="Deposit (₹)" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
-      <input name="bhk" value={form.bhk} onChange={handleChange} placeholder="BHK" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
-      <input name="area_sqft" value={form.area_sqft} onChange={handleChange} placeholder="Area (sq ft)" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
-      <input name="furnishing" value={form.furnishing} onChange={handleChange} placeholder="Furnishing" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+      {/* STEP 2 */}
+      {step === 2 && (
+        <>
+          <input
+            placeholder="Full Address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
 
-      <textarea name="description" value={form.description} onChange={handleChange} placeholder="Description" className="w-full p-3 mb-4 bg-[#1e293b] rounded" />
+          <button
+            onClick={geocodeAddress}
+            className="w-full bg-purple-600 p-3 rounded mb-3"
+          >
+            Get Location
+          </button>
 
-      <input type="file" multiple onChange={(e) => setFiles(e.target.files)} className="mb-4" />
+          {latitude && (
+            <p className="text-green-400 mb-4">
+              📍 Location detected
+            </p>
+          )}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={loading}
-        className={`w-full p-3 rounded ${loading ? "bg-gray-500" : "bg-green-600 hover:bg-green-700"}`}
-      >
-        {loading ? "Saving..." : "Save Property"}
-      </button>
-
-      {/* 🔥 AUTH MODAL */}
-      {showAuth && (
-        <AuthModal
-          onClose={() => setShowAuth(false)}
-          onSuccess={() => {
-            setShowAuth(false);
-            handleSubmit();
-          }}
-        />
+          <button
+            onClick={() => setStep(3)}
+            className="w-full bg-blue-600 p-3 rounded"
+          >
+            Next
+          </button>
+        </>
       )}
+
+      {/* STEP 3 */}
+      {step === 3 && (
+        <>
+          <input
+            placeholder="Rent"
+            value={rent}
+            onChange={(e) => setRent(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
+
+          <input
+            placeholder="Deposit"
+            value={deposit}
+            onChange={(e) => setDeposit(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
+
+          <button
+            onClick={() => setStep(4)}
+            className="w-full bg-blue-600 p-3 rounded"
+          >
+            Next
+          </button>
+        </>
+      )}
+
+      {/* STEP 4 */}
+      {step === 4 && (
+        <>
+          <input
+            placeholder="BHK"
+            value={bhk}
+            onChange={(e) => setBhk(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
+
+          <input
+            placeholder="Area (sq ft)"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
+
+          <input
+            placeholder="Furnishing"
+            value={furnishing}
+            onChange={(e) => setFurnishing(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
+
+          <button
+            onClick={() => setStep(5)}
+            className="w-full bg-blue-600 p-3 rounded"
+          >
+            Next
+          </button>
+        </>
+      )}
+
+      {/* STEP 5 */}
+      {step === 5 && (
+        <>
+          <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full p-3 mb-4 bg-slate-800 rounded"
+          />
+
+          <button
+            onClick={handleSave}
+            className="w-full bg-green-600 p-3 rounded"
+          >
+            Save Property
+          </button>
+        </>
+      )}
+
+      {/* AUTH MODAL */}
+      <AuthModal open={showAuth} onClose={() => setShowAuth(false)} />
     </div>
   );
 }
