@@ -1,8 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Remove tailwind directives for now */
 
-/* ✅ GLOBAL INPUT STYLE */
+/* GLOBAL INPUT STYLE */
 .input {
   width: 100%;
   padding: 10px;
@@ -14,4 +12,12 @@
 
 textarea.input {
   min-height: 100px;
+}
+
+/* BASIC RESET */
+body {
+  margin: 0;
+  background: black;
+  color: white;
+  font-family: sans-serif;
 }

@@ -1,36 +1,49 @@
+import MapView from "@/components/map/MapView";
+import PropertyList from "@/components/map/PropertyList";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-import Index from "./pages/Index";
-import AddEditProperty from "./pages/AddEditProperty";
-import PropertyDetail from "./pages/PropertyDetail";
-import ChatPage from "./pages/ChatPage";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+import ListingWizard from "@/modules/chat/ListingWizard";
+import { AuthProvider } from "@/hooks/useAuth";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
 
-        {/* HOME */}
-        <Route path="/" element={<Index />} />
+          {/* HOME */}
+          <Route
+            path="/"
+            element={
+              <div className="flex h-screen bg-black text-white">
+                {/* LEFT PANEL */}
+                <div className="w-[400px] overflow-y-auto border-r border-gray-800">
+                  <PropertyList properties={[]} selectedId={""} onHover={function (id: string | null): void {
+                    throw new Error("Function not implemented.");
+                  } } onClick={function (id: string): void {
+                    throw new Error("Function not implemented.");
+                  } } loading={false} />
+                </div>
 
-        {/* LIST PROPERTY */}
-        <Route path="/add-property" element={<AddEditProperty />} />
+                {/* MAP */}
+                <div className="flex-1 h-full">
+                  <MapView />
+                </div>
+              </div>
+            }
+          />
 
-        {/* PROPERTY DETAIL */}
-        <Route path="/property/:id" element={<PropertyDetail />} />
+          {/* LIST PROPERTY */}
+          <Route
+            path="/add-property"
+            element={
+              <div className="min-h-screen bg-black text-white">
+                <ListingWizard />
+              </div>
+            }
+          />
 
-        {/* CHAT / INBOX */}
-        <Route path="/chat" element={<ChatPage />} />
-
-        {/* AUTH (optional page if you use it later) */}
-        <Route path="/auth" element={<Auth />} />
-
-        {/* FALLBACK */}
-        <Route path="*" element={<NotFound />} />
-
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
