@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function AuthModal({
@@ -6,44 +5,39 @@ export default function AuthModal({
   onSuccess,
 }: {
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
-
   const handleGoogleLogin = async () => {
-    setLoading(true);
-
-    const { error } = await supabase.auth.signInWithOAuth({
+    await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: window.location.origin, // 🔥 IMPORTANT
       },
     });
-
-    if (error) {
-      alert("Login failed");
-      setLoading(false);
-    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-[#1e293b] p-6 rounded w-[320px] text-center">
-        <h2 className="text-lg mb-4">Login required</h2>
+      <div className="bg-white text-black rounded-xl p-6 w-[350px] text-center shadow-xl">
 
+        <h2 className="text-lg font-semibold mb-4">
+          Please login to continue
+        </h2>
+
+        {/* 🔥 GOOGLE LOGIN */}
         <button
           onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full bg-white text-black p-2 rounded mb-3"
+          className="w-full bg-red-500 hover:bg-red-600 text-white p-3 rounded mb-3"
         >
-          {loading ? "Redirecting..." : "Continue with Google"}
+          Continue with Google
         </button>
 
+        {/* CLOSE */}
         <button
           onClick={onClose}
-          className="text-sm text-gray-400"
+          className="text-sm text-gray-500 hover:underline"
         >
-          Cancel
+          Close
         </button>
       </div>
     </div>
