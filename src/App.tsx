@@ -1,10 +1,30 @@
+import { useEffect, useState } from "react";
 import MapView from "@/components/map/MapView";
 import PropertyList from "@/components/map/PropertyList";
+import { supabase } from "@/integrations/supabase/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ListingWizard from "@/modules/chat/ListingWizard";
 import { AuthProvider } from "@/hooks/useAuth";
 
 export default function App() {
+  const [properties, setProperties] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    const { data, error } = await supabase.from("properties").select("*");
+
+    if (error) {
+      console.error("❌ Fetch error:", error);
+      return;
+    }
+
+    console.log("📦 properties:", data);
+    setProperties(data || []);
+  };
+
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -15,24 +35,18 @@ export default function App() {
             path="/"
             element={
               <div className="flex h-screen bg-black text-white">
-                {/* LEFT PANEL */}
                 <div className="w-[400px] overflow-y-auto border-r border-gray-800">
-                  <PropertyList properties={[]} selectedId={""} onHover={function (id: string | null): void {
-                    throw new Error("Function not implemented.");
-                  } } onClick={function (id: string): void {
-                    throw new Error("Function not implemented.");
-                  } } loading={false} />
+                  <PropertyList properties={properties} />
                 </div>
 
-                {/* MAP */}
                 <div className="flex-1 h-full">
-                  <MapView />
+                  <MapView properties={properties} />
                 </div>
               </div>
             }
           />
 
-          {/* LIST PROPERTY */}
+          {/* ADD PROPERTY */}
           <Route
             path="/add-property"
             element={

@@ -1,14 +1,16 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 
-export default function MapView() {
+type Props = {
+  properties: any[];
+};
+
+export default function MapView({ properties }: Props) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
-    // Prevent re-initialization
-    if (mapRef.current || !mapContainer.current) return;
+    if (!mapContainer.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
@@ -17,27 +19,37 @@ export default function MapView() {
       zoom: 12,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), "top-right");
-
-    map.on("load", () => {
-      console.log("✅ Map loaded");
-    });
-
     mapRef.current = map;
 
-    // Cleanup on unmount
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
+    console.log("✅ Map loaded");
   }, []);
 
-  return (
-    <div className="w-full h-full relative">
-      <div
-        ref={mapContainer}
-        className="absolute inset-0"
-      />
-    </div>
-  );
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current;
+
+    // Remove old markers
+    const existingMarkers = document.querySelectorAll(".marker");
+    existingMarkers.forEach((m) => m.remove());
+
+    properties.forEach((p) => {
+      if (!p.latitude || !p.longitude) return;
+
+      const el = document.createElement("div");
+      el.className = "marker";
+      el.style.background = "#22c55e";
+      el.style.color = "black";
+      el.style.padding = "4px 8px";
+      el.style.borderRadius = "6px";
+      el.style.fontSize = "12px";
+      el.innerText = `₹${p.rent / 1000}k`;
+
+      new maplibregl.Marker(el)
+        .setLngLat([p.longitude, p.latitude])
+        .addTo(map);
+    });
+  }, [properties]);
+
+  return <div ref={mapContainer} className="w-full h-full" />;
 }
