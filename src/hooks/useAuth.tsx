@@ -4,10 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 type UserRole = "admin" | "landlord" | "tenant";
 
-type RoleRow = {
-  role: UserRole;
-};
-
 interface Profile {
   full_name: string | null;
   phone: string | null;
@@ -20,8 +16,6 @@ interface AuthContextType {
   loading: boolean;
   roles: UserRole[];
   profile: Profile | null;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasRole: (role: UserRole) => boolean;
 }
@@ -35,64 +29,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  // -----------------------------
-  // FETCH USER DATA (ROLES + PROFILE)
-  // -----------------------------
- const fetchUserData = async (userId: string) => {
-  // -----------------------------
-  // ROLES
-  // -----------------------------
-  const rolesRes = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
+  const fetchUserData = async (userId: string) => {
+    const rolesRes: any = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
 
-  if (rolesRes.error) {
-    console.error("Roles fetch error:", rolesRes.error);
-  }
+    const profileRes: any = await supabase
+      .from("profiles")
+      .select("full_name, phone, avatar_url")
+      .eq("user_id", userId)
+      .single();
 
-  const rolesData = rolesRes.data as unknown as { role: UserRole }[] | null;
+    if (rolesRes?.data) {
+      setRoles(rolesRes.data.map((r: any) => r.role));
+    }
 
-  if (rolesData) {
-    setRoles(rolesData.map((r) => r.role));
-  }
+    if (profileRes?.data) {
+      setProfile(profileRes.data);
+    }
+  };
 
-  // -----------------------------
-  // PROFILE
-  // -----------------------------
-  const profileRes = await supabase
-    .from("profiles")
-    .select("full_name, phone, avatar_url")
-    .eq("user_id", userId)
-    .single();
-
-  if (profileRes.error) {
-    console.error("Profile fetch error:", profileRes.error);
-  }
-
-  const profileData = profileRes.data as {
-    full_name: string | null;
-    phone: string | null;
-    avatar_url: string | null;
-  } | null;
-
-  if (profileData) {
-    setProfile(profileData);
-  }
-};
-
-  // -----------------------------
-  // INIT AUTH
-  // -----------------------------
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        console.log("🔐 AUTH EVENT:", _event);
+
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // delay prevents race condition
-          setTimeout(() => fetchUserData(session.user.id), 0);
+          console.log("✅ LOGGED IN USER:", session.user.email);
+
+          await fetchUserData(session.user.id);
         } else {
           setRoles([]);
           setProfile(null);
@@ -102,13 +71,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // initial session load
-    supabase.auth.getSession().then(({ data }) => {
-      const session = data.session;
+    supabase.auth.getSession().then((res: any) => {
+      const session = res?.data?.session;
+
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
+        console.log("♻️ RESTORED USER:", session.user.email);
+
         fetchUserData(session.user.id);
       }
 
@@ -120,38 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // -----------------------------
-  // AUTH ACTIONS
-  // -----------------------------
-  const signUp = async (
-    email: string,
-    password: string,
-    fullName: string
-  ) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
-      },
-    });
-
-    if (error) throw error;
-  };
-
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-  };
-
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    await supabase.auth.signOut();
   };
 
   const hasRole = (role: UserRole) => roles.includes(role);
@@ -164,8 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         roles,
         profile,
-        signUp,
-        signIn,
         signOut,
         hasRole,
       }}
@@ -175,13 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// -----------------------------
-// HOOK
-// -----------------------------
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 }
