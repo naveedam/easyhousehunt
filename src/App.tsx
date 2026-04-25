@@ -7,6 +7,7 @@ import ListingWizard from "./modules/chat/ListingWizard";
 import ChatModal from "./modules/chat/ChatModal";
 import Inbox from "./modules/chat/Inbox";
 import SearchFilters, { Filters } from "./components/SearchFilters";
+import MobileLayout from "./components/MobileLayout";
 import { supabase } from "./integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Property } from "./types/property";
@@ -87,66 +88,77 @@ function App() {
     else { setAuthIntent("tenant"); setAuthModalOpen(true); }
   };
 
+  const sharedProps = {
+    properties: filteredProperties,
+    loading,
+    filters,
+    onFiltersChange: setFilters,
+    onSelectProperty: (p: Property) => { setSelectedProperty(p); setDetailProperty(p); },
+    onListProperty: handleListProperty,
+    onOpenInbox: () => setInboxOpen(true),
+    onSignIn: () => { setAuthIntent("tenant"); setAuthModalOpen(true); },
+    onSignOut: signOut,
+    detailProperty,
+    onCloseDetail: () => setDetailProperty(null),
+    onConnectOwner: handleConnectWithOwner,
+  };
+
   return (
-    <div className="flex h-screen w-full">
-      <div className="w-[350px] bg-black text-white overflow-y-auto flex flex-col">
-        <div className="p-4 space-y-2">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-orange-500 font-bold text-lg">EasyHouseHunt</h1>
-            {user ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 truncate max-w-[80px]">
-                  {user.email?.split("@")[0]}
-                </span>
-                <button
-                  onClick={() => setInboxOpen(true)}
-                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded-full"
-                >
-                  💬
-                </button>
-                <button
-                  onClick={signOut}
-                  className="text-xs text-gray-500 hover:text-white"
-                >
-                  Sign out
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => { setAuthIntent("tenant"); setAuthModalOpen(true); }}
-                className="text-xs text-orange-400 hover:text-orange-300"
-              >
-                Sign in
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={handleListProperty}
-            className="bg-orange-500 hover:bg-orange-600 w-full py-3 rounded font-semibold"
-          >
-            + List Your Property
-          </button>
-        </div>
-
-        <SearchFilters onChange={setFilters} />
-
-        {loading ? (
-          <p className="text-gray-400 px-4">Loading...</p>
-        ) : (
-          <PropertyList
-            properties={filteredProperties}
-            onSelect={(p) => { setSelectedProperty(p); setDetailProperty(p); }}
-          />
-        )}
+    <>
+      {/* MOBILE */}
+      <div className="block md:hidden h-screen">
+        <MobileLayout {...sharedProps} />
       </div>
 
-      <div className="flex-1">
-        <MapView
-          properties={filteredProperties}
-          selectedProperty={selectedProperty}
-          onMarkerClick={(p) => { setSelectedProperty(p); setDetailProperty(p); }}
-        />
+      {/* DESKTOP */}
+      <div className="hidden md:flex h-screen w-full">
+        <div className="w-[350px] bg-black text-white overflow-y-auto flex flex-col">
+          <div className="p-4 space-y-2">
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-orange-500 font-bold text-lg">EasyHouseHunt</h1>
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 truncate max-w-[80px]">
+                    {user.email?.split("@")[0]}
+                  </span>
+                  <button onClick={() => setInboxOpen(true)}
+                    className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded-full">
+                    💬
+                  </button>
+                  <button onClick={signOut}
+                    className="text-xs text-gray-500 hover:text-white">
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => { setAuthIntent("tenant"); setAuthModalOpen(true); }}
+                  className="text-xs text-orange-400 hover:text-orange-300">
+                  Sign in
+                </button>
+              )}
+            </div>
+            <button onClick={handleListProperty}
+              className="bg-orange-500 hover:bg-orange-600 w-full py-3 rounded font-semibold">
+              + List Your Property
+            </button>
+          </div>
+          <SearchFilters onChange={setFilters} />
+          {loading ? (
+            <p className="text-gray-400 px-4">Loading...</p>
+          ) : (
+            <PropertyList
+              properties={filteredProperties}
+              onSelect={(p) => { setSelectedProperty(p); setDetailProperty(p); }}
+            />
+          )}
+        </div>
+        <div className="flex-1">
+          <MapView
+            properties={filteredProperties}
+            selectedProperty={selectedProperty}
+            onMarkerClick={(p) => { setSelectedProperty(p); setDetailProperty(p); }}
+          />
+        </div>
       </div>
 
       {detailProperty && (
@@ -183,7 +195,7 @@ function App() {
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
       />
-    </div>
+    </>
   );
 }
 
