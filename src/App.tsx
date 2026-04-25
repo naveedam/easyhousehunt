@@ -102,6 +102,12 @@ function App() {
                   {user.email?.split("@")[0]}
                 </span>
                 <button
+                  onClick={() => setInboxOpen(true)}
+                  className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded-full"
+                >
+                  💬
+                </button>
+                <button
                   onClick={signOut}
                   className="text-xs text-gray-500 hover:text-white"
                 >
