@@ -1,35 +1,36 @@
+import { Property } from "../../types/property";
+
 type Props = {
-  properties: any[];
+  properties: Property[];
+  onSelect: (p: Property) => void;
 };
 
-export default function PropertyList({ properties }: Props) {
+export default function PropertyList({ properties, onSelect }: Props) {
+  if (!Array.isArray(properties)) {
+    return <div className="text-white p-4">Failed to load properties</div>;
+  }
+
+  if (properties.length === 0) {
+    return <div className="text-gray-400 p-4 text-sm">No properties found.</div>;
+  }
+
   return (
-    <div className="p-4 space-y-4">
-      <button
-        onClick={() => (window.location.href = "/add-property")}
-        className="w-full bg-orange-500 text-white p-3 rounded"
-      >
-        + List Your Property
-      </button>
-
-      {properties.length === 0 && (
-        <div className="text-gray-400 text-sm">
-          No properties found
-        </div>
-      )}
-
+    <div className="space-y-3 px-4 pb-4">
       {properties.map((p) => (
         <div
           key={p.id}
-          className="bg-gray-800 p-4 rounded border border-gray-700"
+          onClick={() => onSelect(p)}
+          className="bg-gray-800 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
         >
-          <div className="font-semibold">{p.title}</div>
-          <div className="text-green-400">
-            ₹{p.rent}/mo
-          </div>
-          <div className="text-sm text-gray-400">
-            {p.bhk} BHK • {p.address}
-          </div>
+          <h3 className="text-white font-semibold text-sm">{p.title || "Untitled"}</h3>
+          <p className="text-green-400 font-bold">₹{p.rent?.toLocaleString()}/mo</p>
+          {p.bhk && (
+            <p className="text-gray-300 text-xs">{p.bhk} BHK · {p.property_type}</p>
+          )}
+          <p className="text-gray-400 text-xs mt-1 truncate">{p.address}</p>
+          {p.is_verified && (
+            <span className="text-xs text-blue-400 mt-1 inline-block">✓ Verified</span>
+          )}
         </div>
       ))}
     </div>

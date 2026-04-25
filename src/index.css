@@ -1,23 +1,7 @@
-/* Remove tailwind directives for now */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* GLOBAL INPUT STYLE */
-.input {
-  width: 100%;
-  padding: 10px;
-  border-radius: 8px;
-  background: #1e293b;
-  color: white;
-  border: 1px solid #334155;
-}
-
-textarea.input {
-  min-height: 100px;
-}
-
-/* BASIC RESET */
 body {
-  margin: 0;
   background: black;
-  color: white;
-  font-family: sans-serif;
 }

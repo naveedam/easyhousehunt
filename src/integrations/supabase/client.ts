@@ -1,10 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = "https://skvlnxlbdyjxroxwqmeq.supabase.co";
 
-export const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
+const supabaseAnonKey = "sb_publishable_sggH93LE65OahTCvRoth_g_uBrcZpaj"; // ✅ correct
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+console.log("🔥 Using NEW publishable key");
