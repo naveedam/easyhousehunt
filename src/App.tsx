@@ -142,7 +142,7 @@ function App() {
                 <div className="relative">
                   <button
                     onClick={() => setMenuOpen(prev => !prev)}
-                    className="flex flex-col gap-1 p-2 hover:bg-gray-800 rounded-lg"
+                    className="flex flex-col gap-1 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
                   >
                     <span className="w-4 h-0.5 bg-white block"></span>
                     <span className="w-4 h-0.5 bg-white block"></span>
