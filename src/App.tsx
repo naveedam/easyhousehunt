@@ -182,7 +182,6 @@ function App() {
                   Sign in
                 </button>
               )}
-              )}
             </div>
             <button onClick={handleListProperty}
               className="bg-orange-500 hover:bg-orange-600 w-full py-3 rounded font-semibold">
