@@ -18,6 +18,9 @@ export default function MobileLayout({
   onOpenInbox,
   onSignIn,
   onSignOut,
+  onOwnerDash,
+  isAdmin,
+  onAdminDash,
   detailProperty,
   onCloseDetail,
   onConnectOwner,
@@ -31,6 +34,9 @@ export default function MobileLayout({
   onOpenInbox: () => void;
   onSignIn: () => void;
   onSignOut: () => void;
+  onOwnerDash: () => void;
+  isAdmin: boolean;
+  onAdminDash: () => void;
   detailProperty: Property | null;
   onCloseDetail: () => void;
   onConnectOwner: () => void;
@@ -80,9 +86,19 @@ export default function MobileLayout({
                 className="bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full font-medium">
                 💬
               </button>
+              <button onClick={onOwnerDash}
+                className="bg-gray-700 text-white text-xs px-3 py-1.5 rounded-full">
+                🏠
+              </button>
+              {isAdmin && (
+                <button onClick={onAdminDash}
+                  className="bg-purple-700 text-white text-xs px-3 py-1.5 rounded-full">
+                  ⚙️
+                </button>
+              )}
               <button onClick={onSignOut}
                 className="bg-gray-800/80 text-gray-300 text-xs px-3 py-1.5 rounded-full">
-                Sign out
+                Out
               </button>
             </>
           ) : (

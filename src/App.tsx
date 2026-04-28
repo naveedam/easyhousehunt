@@ -7,6 +7,9 @@ import ListingWizard from "./modules/chat/ListingWizard";
 import ChatModal from "./modules/chat/ChatModal";
 import Inbox from "./modules/chat/Inbox";
 import SearchFilters, { Filters } from "./components/SearchFilters";
+import OwnerDashboard from "./pages/OwnerDashboard";
+import TenantDashboard from "./pages/TenantDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import MobileLayout from "./components/MobileLayout";
 import { supabase } from "./integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +26,10 @@ function App() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [chatProperty, setChatProperty] = useState<Property | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [ownerDashOpen, setOwnerDashOpen] = useState(false);
+  const [tenantDashOpen, setTenantDashOpen] = useState(false);
+  const [adminDashOpen, setAdminDashOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: ""
   });
@@ -67,6 +74,12 @@ function App() {
 
   useEffect(() => { fetchProperties(); }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("is_admin").eq("id", user.id).single()
+      .then(({ data }) => setIsAdmin(data?.is_admin || false));
+  }, [user]);
+
   const filteredProperties = properties.filter((p) => {
     if (filters.bhk.length > 0 && !filters.bhk.includes(p.bhk ?? 0)) return false;
     if (p.rent < filters.minRent || p.rent > filters.maxRent) return false;
@@ -98,6 +111,9 @@ function App() {
     onOpenInbox: () => setInboxOpen(true),
     onSignIn: () => { setAuthIntent("tenant"); setAuthModalOpen(true); },
     onSignOut: signOut,
+    onOwnerDash: () => setOwnerDashOpen(true),
+    isAdmin,
+    onAdminDash: () => setAdminDashOpen(true),
     detailProperty,
     onCloseDetail: () => setDetailProperty(null),
     onConnectOwner: handleConnectWithOwner,
@@ -125,6 +141,16 @@ function App() {
                     className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded-full">
                     💬
                   </button>
+                  <button onClick={() => setOwnerDashOpen(true)}
+                    className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded-full">
+                    🏠
+                  </button>
+                  {isAdmin && (
+                    <button onClick={() => setAdminDashOpen(true)}
+                      className="text-xs bg-purple-700 hover:bg-purple-600 text-white px-2 py-1 rounded-full">
+                      ⚙️
+                    </button>
+                  )}
                   <button onClick={signOut}
                     className="text-xs text-gray-500 hover:text-white">
                     Sign out
@@ -195,6 +221,10 @@ function App() {
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
       />
+
+      {ownerDashOpen && <OwnerDashboard onClose={() => setOwnerDashOpen(false)} />}
+      {tenantDashOpen && <TenantDashboard onClose={() => setTenantDashOpen(false)} />}
+      {adminDashOpen && <AdminDashboard onClose={() => setAdminDashOpen(false)} />}
     </>
   );
 }

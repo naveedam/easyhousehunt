@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Property } from "../../types/property";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function PropertyDetail({
   property,
@@ -11,6 +13,21 @@ export default function PropertyDetail({
   onConnectClick: () => void;
 }) {
   const { user } = useAuth();
+  const [saved, setSaved] = useState(false);
+
+  const toggleSave = async () => {
+    if (!user) return;
+    if (saved) {
+      await supabase.from("saved_properties").delete()
+        .eq("user_id", user.id).eq("property_id", property.id);
+      setSaved(false);
+    } else {
+      await supabase.from("saved_properties").insert({
+        user_id: user.id, property_id: property.id
+      });
+      setSaved(true);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60">

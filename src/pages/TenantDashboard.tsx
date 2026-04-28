@@ -1,136 +1,110 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useSavedProperties } from '@/hooks/useSavedProperties';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ChatModal from '@/modules/chat/ChatModal';
-import { MessageSquare, CreditCard, Loader2, CalendarDays, Heart, MessageCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-export default function TenantDashboard() {
+export default function TenantDashboard({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
-  const { savedProperties, loading: savedLoading, toggleSave } = useSavedProperties();
+  const [saved, setSaved] = useState<any[]>([]);
   const [enquiries, setEnquiries] = useState<any[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [recent, setRecent] = useState<any[]>([]);
+  const [tab, setTab] = useState<"saved" | "enquiries" | "recent">("saved");
   const [loading, setLoading] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [activeEnquiryId, setActiveEnquiryId] = useState<string | null>(null);
-  const [chatParticipants, setChatParticipants] = useState<any[]>([]);
-  const [chatTitle, setChatTitle] = useState('');
 
-  useEffect(() => {
-    if (user) fetchData();
-  }, [user]);
+  useEffect(() => { fetchAll(); }, []);
 
-  const fetchData = async () => {
-    const [enqRes, bookRes] = await Promise.all([
-      supabase.from('enquiries').select('*, properties(title, address, landlord_id)').eq('tenant_id', user!.id).order('created_at', { ascending: false }),
-      supabase.from('bookings').select('*, properties(title, address)').eq('tenant_id', user!.id).order('created_at', { ascending: false }),
-    ]);
-    setEnquiries(enqRes.data || []);
-    setBookings(bookRes.data || []);
+  const fetchAll = async () => {
+    if (!user) return;
+    setLoading(true);
+
+    const { data: saves } = await supabase
+      .from("saved_properties")
+      .select("*, properties(id, title, rent, bhk, address, furnishing)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    const { data: enqs } = await supabase
+      .from("messages")
+      .select("*, properties(title)")
+      .eq("sender_id", user.id)
+      .order("created_at", { ascending: false });
+
+    setSaved(saves || []);
+    setEnquiries(enqs || []);
     setLoading(false);
   };
 
-  const openChat = async (enquiry: any) => {
-    const landlordId = (enquiry.properties as any)?.landlord_id;
-    let ownerName = 'Owner';
-    if (landlordId) {
-      const { data } = await supabase.from('profiles').select('full_name').eq('user_id', landlordId).single();
-      ownerName = data?.full_name || 'Owner';
-    }
-    setChatParticipants([
-      { id: user!.id, name: 'You', role: 'tenant' },
-      { id: landlordId, name: ownerName, role: 'owner' },
-    ]);
-    setChatTitle((enquiry.properties as any)?.title || 'Chat');
-    setActiveEnquiryId(enquiry.id);
-    setChatOpen(true);
+  const unsaveProperty = async (id: string) => {
+    await supabase.from("saved_properties").delete().eq("id", id);
+    setSaved(prev => prev.filter(s => s.id !== id));
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  const TABS = [
+    { key: "saved", label: "Saved", count: saved.length },
+    { key: "enquiries", label: "Enquiries", count: enquiries.length },
+  ];
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-3xl">
-      <h1 className="font-heading text-2xl font-bold mb-6">My Dashboard</h1>
+    <div className="fixed inset-0 z-50 bg-gray-950 text-white flex flex-col">
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
+        <div>
+          <h1 className="font-bold text-lg">My Dashboard</h1>
+          <p className="text-xs text-gray-400">{user?.email}</p>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">✕</button>
+      </div>
 
-      <Tabs defaultValue="enquiries">
-        <TabsList>
-          <TabsTrigger value="enquiries"><MessageSquare className="h-4 w-4 mr-1" /> Enquiries</TabsTrigger>
-          <TabsTrigger value="bookings"><CreditCard className="h-4 w-4 mr-1" /> Bookings</TabsTrigger>
-          <TabsTrigger value="saved"><Heart className="h-4 w-4 mr-1" /> Saved</TabsTrigger>
-        </TabsList>
+      <div className="flex border-b border-gray-800">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key as any)}
+            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 ${tab === t.key ? "text-orange-400 border-b-2 border-orange-400" : "text-gray-400"}`}>
+            {t.label}
+            <span className={`text-xs rounded-full px-1.5 ${tab === t.key ? "bg-orange-500 text-white" : "bg-gray-700 text-gray-300"}`}>
+              {t.count}
+            </span>
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="enquiries" className="mt-4 space-y-3">
-          {enquiries.map(e => (
-            <Card key={e.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {loading ? <p className="text-gray-400">Loading...</p> : (
+          <>
+            {tab === "saved" && (
+              saved.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <p className="text-4xl mb-2">🔖</p>
+                  <p>No saved properties yet</p>
+                  <p className="text-sm mt-1">Tap the bookmark on any listing to save it</p>
+                </div>
+              ) : saved.map(s => (
+                <div key={s.id} className="bg-gray-800 rounded-xl p-4 flex justify-between items-start">
                   <div>
-                    <p className="font-medium text-sm">{(e.properties as any)?.title}</p>
-                    <p className="text-xs text-muted-foreground">{(e.properties as any)?.address}</p>
-                    {e.visit_date && <p className="text-xs text-primary mt-1 flex items-center gap-1"><CalendarDays className="h-3 w-3" /> {e.visit_date}</p>}
+                    <p className="font-semibold">{s.properties?.title}</p>
+                    <p className="text-green-400 font-bold">₹{s.properties?.rent?.toLocaleString()}/mo</p>
+                    <p className="text-gray-400 text-xs mt-1">{s.properties?.bhk} BHK · {s.properties?.furnishing}</p>
+                    <p className="text-gray-500 text-xs truncate">{s.properties?.address}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="capitalize">{e.status}</Badge>
-                    <Button size="sm" variant="ghost" onClick={() => openChat(e)}>
-                      <MessageCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <button onClick={() => unsaveProperty(s.id)} className="text-gray-500 hover:text-red-400 text-lg ml-2">🔖</button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-          {enquiries.length === 0 && <p className="text-center text-muted-foreground py-8">No enquiries yet.</p>}
-        </TabsContent>
+              ))
+            )}
 
-        <TabsContent value="bookings" className="mt-4 space-y-3">
-          {bookings.map(b => (
-            <Card key={b.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-sm">{(b.properties as any)?.title}</p>
-                    <p className="text-xs text-muted-foreground">Token: ₹{Number(b.token_amount).toLocaleString('en-IN')}</p>
-                  </div>
-                  <Badge variant="secondary" className="capitalize">{b.booking_status}</Badge>
+            {tab === "enquiries" && (
+              enquiries.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <p className="text-4xl mb-2">💬</p>
+                  <p>No enquiries sent yet</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-          {bookings.length === 0 && <p className="text-center text-muted-foreground py-8">No bookings yet.</p>}
-        </TabsContent>
-
-        <TabsContent value="saved" className="mt-4 space-y-3">
-          {savedProperties.map((p: any) => (
-            <Card key={p.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <Link to={`/property/${p.id}`} className="flex-1">
-                    <p className="font-medium text-sm hover:text-primary">{p.title}</p>
-                    <p className="text-xs text-muted-foreground">{p.address} · {p.bhk} BHK · ₹{Number(p.rent).toLocaleString('en-IN')}/mo</p>
-                  </Link>
-                  <Button size="sm" variant="ghost" onClick={() => toggleSave(p.id)}>
-                    <Heart className="h-4 w-4 fill-destructive text-destructive" />
-                  </Button>
+              ) : enquiries.map(e => (
+                <div key={e.id} className="bg-gray-800 rounded-xl p-4">
+                  <p className="text-orange-400 text-xs font-semibold">{e.properties?.title}</p>
+                  <p className="text-gray-300 text-sm mt-1">{e.message}</p>
+                  <p className="text-gray-500 text-xs mt-1">{new Date(e.created_at).toLocaleDateString()}</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-          {savedProperties.length === 0 && <p className="text-center text-muted-foreground py-8">No saved properties yet.</p>}
-        </TabsContent>
-      </Tabs>
-
-      <ChatModal
-        open={chatOpen}
-        onOpenChange={setChatOpen}
-        enquiryId={activeEnquiryId}
-        propertyTitle={chatTitle}
-        participants={chatParticipants}
-      />
+              ))
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
