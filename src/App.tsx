@@ -139,34 +139,49 @@ function App() {
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-orange-500 font-bold text-lg">EasyHouseHunt</h1>
               {user ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 truncate max-w-[80px]">
-                    {user.email?.split("@")[0]}
-                  </span>
-                  <button onClick={() => setInboxOpen(true)}
-                    className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded-full">
-                    💬
+                <div className="relative">
+                  <button
+                    onClick={() => setMenuOpen(prev => !prev)}
+                    className="flex flex-col gap-1 p-2 hover:bg-gray-800 rounded-lg"
+                  >
+                    <span className="w-4 h-0.5 bg-white block"></span>
+                    <span className="w-4 h-0.5 bg-white block"></span>
+                    <span className="w-4 h-0.5 bg-white block"></span>
                   </button>
-                  <button onClick={() => setOwnerDashOpen(true)}
-                    className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded-full">
-                    🏠
-                  </button>
-                  {isAdmin && (
-                    <button onClick={() => setAdminDashOpen(true)}
-                      className="text-xs bg-purple-700 hover:bg-purple-600 text-white px-2 py-1 rounded-full">
-                      ⚙️
-                    </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 top-10 bg-gray-800 rounded-xl shadow-xl z-50 w-48 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-700">
+                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                      </div>
+                      <button onClick={() => { setInboxOpen(true); setMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                        💬 Messages
+                      </button>
+                      <button onClick={() => { setOwnerDashOpen(true); setMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                        🏠 My Listings
+                      </button>
+                      {effectiveAdmin && (
+                        <button onClick={() => { setAdminDashOpen(true); setMenuOpen(false); }}
+                          className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                          ⚙️ Admin Panel
+                        </button>
+                      )}
+                      <div className="border-t border-gray-700">
+                        <button onClick={() => { signOut(); setMenuOpen(false); }}
+                          className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2">
+                          ↪ Sign Out
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  <button onClick={signOut}
-                    className="text-xs text-gray-500 hover:text-white">
-                    Sign out
-                  </button>
                 </div>
               ) : (
                 <button onClick={() => { setAuthIntent("tenant"); setAuthModalOpen(true); }}
                   className="text-xs text-orange-400 hover:text-orange-300">
                   Sign in
                 </button>
+              )}
               )}
             </div>
             <button onClick={handleListProperty}
