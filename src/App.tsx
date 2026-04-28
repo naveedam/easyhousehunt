@@ -84,6 +84,7 @@ function App() {
   const adminEmail = "naveedahmedm@gmail.com";
   const isAdminByEmail = user?.email === adminEmail;
   const effectiveAdmin = isAdmin || isAdminByEmail;
+  console.log("Admin check:", user?.email, effectiveAdmin, isAdmin, isAdminByEmail);
 
   const filteredProperties = properties.filter((p) => {
     if (filters.bhk.length > 0 && !filters.bhk.includes(p.bhk ?? 0)) return false;
