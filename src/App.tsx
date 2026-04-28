@@ -80,6 +80,11 @@ function App() {
       .then(({ data }) => setIsAdmin(data?.is_admin || false));
   }, [user]);
 
+  // Also check by email as fallback
+  const adminEmail = "naveedahmedm@gmail.com";
+  const isAdminByEmail = user?.email === adminEmail;
+  const effectiveAdmin = isAdmin || isAdminByEmail;
+
   const filteredProperties = properties.filter((p) => {
     if (filters.bhk.length > 0 && !filters.bhk.includes(p.bhk ?? 0)) return false;
     if (p.rent < filters.minRent || p.rent > filters.maxRent) return false;
