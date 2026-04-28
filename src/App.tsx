@@ -26,6 +26,7 @@ function App() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [chatProperty, setChatProperty] = useState<Property | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [ownerDashOpen, setOwnerDashOpen] = useState(false);
   const [tenantDashOpen, setTenantDashOpen] = useState(false);
   const [adminDashOpen, setAdminDashOpen] = useState(false);

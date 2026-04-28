@@ -43,6 +43,7 @@ export default function MobileLayout({
 }) {
   const { user } = useAuth();
   const [sheetState, setSheetState] = useState<SheetState>("peek");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const touchStartY = useRef<number>(0);
   const touchStartState = useRef<SheetState>("peek");
@@ -82,24 +83,43 @@ export default function MobileLayout({
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              <button onClick={onOpenInbox}
-                className="bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full font-medium">
-                💬
-              </button>
-              <button onClick={onOwnerDash}
-                className="bg-gray-700 text-white text-xs px-3 py-1.5 rounded-full">
-                🏠
-              </button>
-              {isAdmin && (
-                <button onClick={onAdminDash}
-                  className="bg-purple-700 text-white text-xs px-3 py-1.5 rounded-full">
-                  ⚙️
+              <div className="relative">
+                <button
+                  onClick={() => setMobileMenuOpen(prev => !prev)}
+                  className="flex flex-col gap-1 p-2 bg-gray-800/80 rounded-lg"
+                >
+                  <span className="w-4 h-0.5 bg-white block"></span>
+                  <span className="w-4 h-0.5 bg-white block"></span>
+                  <span className="w-4 h-0.5 bg-white block"></span>
                 </button>
-              )}
-              <button onClick={onSignOut}
-                className="bg-gray-800/80 text-gray-300 text-xs px-3 py-1.5 rounded-full">
-                Out
-              </button>
+                {mobileMenuOpen && (
+                  <div className="absolute right-0 top-10 bg-gray-800 rounded-xl shadow-xl z-50 w-48 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-700">
+                      <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                    </div>
+                    <button onClick={() => { onOpenInbox(); setMobileMenuOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                      💬 Messages
+                    </button>
+                    <button onClick={() => { onOwnerDash(); setMobileMenuOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                      🏠 My Listings
+                    </button>
+                    {isAdmin && (
+                      <button onClick={() => { onAdminDash(); setMobileMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                        ⚙️ Admin Panel
+                      </button>
+                    )}
+                    <div className="border-t border-gray-700">
+                      <button onClick={() => { onSignOut(); setMobileMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2">
+                        ↪ Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <button onClick={onSignIn}
