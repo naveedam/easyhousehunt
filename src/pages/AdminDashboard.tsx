@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EditListingModal from "@/components/EditListingModal";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function AdminDashboard({ onClose }: { onClose: () => void }) {
@@ -8,6 +9,7 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<"listings" | "messages" | "users">("listings");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ listings: 0, messages: 0, users: 0 });
+  const [editListing, setEditListing] = useState<any>(null);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -114,10 +116,16 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
                       <span className="text-xs text-gray-500">{new Date(l.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <button onClick={() => deleteListing(l.id)}
-                    className="text-red-400 hover:text-red-300 text-xs ml-3 flex-shrink-0">
-                    🗑
-                  </button>
+                  <div className="flex flex-col gap-1 ml-3 flex-shrink-0">
+                    <button onClick={() => setEditListing(l)}
+                      className="text-orange-400 hover:text-orange-300 text-xs">
+                      ✏️
+                    </button>
+                    <button onClick={() => deleteListing(l.id)}
+                      className="text-red-400 hover:text-red-300 text-xs">
+                      🗑
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -159,6 +167,14 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
+      {editListing && (
+        <EditListingModal
+          listing={editListing}
+          adminMode={true}
+          onClose={() => setEditListing(null)}
+          onSaved={() => { setEditListing(null); fetchAll(); }}
+        />
+      )}
     </div>
   );
 }

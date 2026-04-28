@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EditListingModal from "@/components/EditListingModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -20,6 +21,7 @@ export default function OwnerDashboard({ onClose }: { onClose: () => void }) {
   const [saved, setSaved] = useState<any[]>([]);
   const [tab, setTab] = useState<"listings" | "enquiries" | "saved">("listings");
   const [loading, setLoading] = useState(true);
+  const [editListing, setEditListing] = useState<any>(null);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -112,10 +114,16 @@ export default function OwnerDashboard({ onClose }: { onClose: () => void }) {
                           Listed {new Date(l.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <button onClick={() => deleteListing(l.id)}
-                        className="text-red-400 hover:text-red-300 text-xs ml-3 mt-1">
-                        🗑 Delete
-                      </button>
+                      <div className="flex flex-col gap-1 ml-3">
+                        <button onClick={() => setEditListing(l)}
+                          className="text-orange-400 hover:text-orange-300 text-xs">
+                          ✏️ Edit
+                        </button>
+                        <button onClick={() => deleteListing(l.id)}
+                          className="text-red-400 hover:text-red-300 text-xs">
+                          🗑 Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -164,6 +172,13 @@ export default function OwnerDashboard({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
+      {editListing && (
+        <EditListingModal
+          listing={editListing}
+          onClose={() => setEditListing(null)}
+          onSaved={() => { setEditListing(null); fetchAll(); }}
+        />
+      )}
     </div>
   );
 }
