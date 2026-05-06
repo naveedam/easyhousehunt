@@ -60,11 +60,20 @@ export default function PropertyDetail({
 
         {/* Key details */}
         <div className="flex gap-3 mt-3 flex-wrap">
-          {property.bhk && (
+          {property.property_type && (
+            <span className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full text-sm">
+              {property.property_type}
+            </span>
+          )}
+          {property.property_type === "PG" && property.occupancy ? (
+            <span className="bg-gray-700 px-3 py-1 rounded-full text-sm">
+              {property.occupancy} Occupancy
+            </span>
+          ) : property.bhk ? (
             <span className="bg-gray-700 px-3 py-1 rounded-full text-sm">
               {property.bhk} BHK
             </span>
-          )}
+          ) : null}
           {property.furnishing && (
             <span className="bg-gray-700 px-3 py-1 rounded-full text-sm">
               {property.furnishing}

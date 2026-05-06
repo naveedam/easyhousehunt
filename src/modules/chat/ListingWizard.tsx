@@ -40,7 +40,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
   const [form, setForm] = useState({
     address: "", rent: "", deposit: "", bhk: "2",
     area_sqft: "", furnishing: "Semi", description: "",
-    latitude: "", longitude: "",
+    latitude: "", longitude: "", property_type: "Apartment", occupancy: "Single",
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -122,6 +122,8 @@ export default function ListingWizard({ onClose, onSuccess }: {
       amenities,
       media_urls: uploadedUrls,
       landlord_id: user.id,
+      property_type: form.property_type,
+      occupancy: form.property_type === "PG" ? form.occupancy : null,
     });
 
     setSaving(false);
@@ -173,7 +175,16 @@ export default function ListingWizard({ onClose, onSuccess }: {
           {step === 1 && (
             <>
               <div>
-                <label className="text-sm text-gray-400">Apartment / Project *</label>
+                <label className="text-sm text-gray-400">Property Type *</label>
+                <div className="flex gap-2 mt-1 mb-3">
+                  {["Apartment", "Independent House", "PG"].map(t => (
+                    <button key={t} onClick={() => set("property_type", t)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.property_type === t ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              <label className="text-sm text-gray-400">{form.property_type === "PG" ? "PG Name *" : "Apartment / Project *"}</label>
                 <select className={inp + " mt-1"} value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
                   <option value="">Select...</option>
                   {PROJECTS.map(p => <option key={p}>{p}</option>)}
@@ -264,10 +275,21 @@ export default function ListingWizard({ onClose, onSuccess }: {
                 <input type="number" className={inp + " mt-1"} placeholder="e.g. 100000" value={form.deposit} onChange={e => set("deposit", e.target.value)} />
               </div>
               <div>
-                <label className="text-sm text-gray-400">BHK *</label>
-                <select className={inp + " mt-1"} value={form.bhk} onChange={e => set("bhk", e.target.value)}>
-                  {["1","2","3","4","5"].map(n => <option key={n}>{n}</option>)}
-                </select>
+                {form.property_type === "PG" ? (
+                  <>
+                    <label className="text-sm text-gray-400">Occupancy *</label>
+                    <select className={inp + " mt-1"} value={form.occupancy} onChange={e => set("occupancy", e.target.value)}>
+                      {["Single", "Double", "Triple"].map(n => <option key={n}>{n}</option>)}
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <label className="text-sm text-gray-400">BHK *</label>
+                    <select className={inp + " mt-1"} value={form.bhk} onChange={e => set("bhk", e.target.value)}>
+                      {["1","2","3","4","5"].map(n => <option key={n}>{n}</option>)}
+                    </select>
+                  </>
+                )}
               </div>
               <div>
                 <label className="text-sm text-gray-400">Area (sqft)</label>

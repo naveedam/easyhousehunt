@@ -24,9 +24,11 @@ export default function PropertyList({ properties, onSelect }: Props) {
         >
           <h3 className="text-white font-semibold text-sm">{p.title || "Untitled"}</h3>
           <p className="text-green-400 font-bold">₹{p.rent?.toLocaleString()}/mo</p>
-          {p.bhk && (
-            <p className="text-gray-300 text-xs">{p.bhk} BHK · {p.property_type}</p>
-          )}
+          {p.property_type === "PG" ? (
+            <p className="text-gray-300 text-xs">PG · {p.occupancy || "Single"} Occupancy</p>
+          ) : p.bhk ? (
+            <p className="text-gray-300 text-xs">{p.bhk} BHK · {p.property_type || "Apartment"}</p>
+          ) : null}
           <p className="text-gray-400 text-xs mt-1 truncate">{p.address}</p>
           {p.is_verified && (
             <span className="text-xs text-blue-400 mt-1 inline-block">✓ Verified</span>

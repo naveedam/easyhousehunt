@@ -6,6 +6,7 @@ export interface Filters {
   maxRent: number;
   furnishing: string[];
   search: string;
+  propertyType: string;
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -14,6 +15,7 @@ const DEFAULT_FILTERS: Filters = {
   maxRent: 200000,
   furnishing: [],
   search: "",
+  propertyType: "All",
 };
 
 export default function SearchFilters({
@@ -53,6 +55,7 @@ export default function SearchFilters({
     filters.bhk.length > 0,
     filters.furnishing.length > 0,
     filters.minRent > 0 || filters.maxRent < 200000,
+    filters.propertyType !== "All",
   ].filter(Boolean).length;
 
   return (
@@ -93,7 +96,28 @@ export default function SearchFilters({
       {expanded && (
         <div className="mt-3 space-y-4 bg-gray-900 rounded-xl p-3">
 
-          {/* BHK */}
+          {/* Property Type */}
+          <div>
+            <p className="text-xs text-gray-400 mb-2">Property Type</p>
+            <div className="flex gap-2">
+              {["All", "Apartment", "PG", "Independent House"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => update({ propertyType: t })}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border ${
+                    filters.propertyType === t
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : "bg-gray-800 border-gray-600 text-gray-300"
+                  }`}
+                >
+                  {t === "Independent House" ? "House" : t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* BHK - hide for PG */}
+          {filters.propertyType !== "PG" && (
           <div>
             <p className="text-xs text-gray-400 mb-2">BHK</p>
             <div className="flex gap-2">
@@ -112,6 +136,7 @@ export default function SearchFilters({
               ))}
             </div>
           </div>
+          )}
 
           {/* Rent range */}
           <div>

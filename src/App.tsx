@@ -32,14 +32,14 @@ function App() {
   const [adminDashOpen, setAdminDashOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filters, setFilters] = useState<Filters>({
-    bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: ""
+    bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: "", propertyType: "All"
   });
 
   async function fetchProperties() {
     try {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id")
+        .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy")
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .limit(100);
@@ -62,6 +62,8 @@ function App() {
         media_urls: p.media_urls ?? [],
         image_url: p.media_urls?.[0] ?? null,
         landlord_id: p.landlord_id ?? null,
+        property_type: p.property_type ?? "Apartment",
+        occupancy: p.occupancy ?? null,
       }));
 
       setProperties(mapped);
@@ -90,6 +92,7 @@ function App() {
     if (filters.bhk.length > 0 && !filters.bhk.includes(p.bhk ?? 0)) return false;
     if (p.rent < filters.minRent || p.rent > filters.maxRent) return false;
     if (filters.furnishing.length > 0 && !filters.furnishing.includes(p.furnishing ?? "")) return false;
+    if (filters.propertyType !== "All" && p.property_type !== filters.propertyType) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
       if (!p.title?.toLowerCase().includes(q) && !p.address?.toLowerCase().includes(q)) return false;
