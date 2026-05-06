@@ -109,7 +109,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
     const uploadedUrls = await uploadPhotos();
 
     const { error: err } = await supabase.from("properties").insert({
-      title: selectedProject === "Other" ? customProject : selectedProject,
+      title: form.property_type === "PG" ? customProject : (selectedProject === "Other" ? customProject : selectedProject),
       address: form.address,
       rent: parseInt(form.rent) || 0,
       deposit: parseInt(form.deposit) || null,
@@ -185,6 +185,9 @@ export default function ListingWizard({ onClose, onSuccess }: {
                   ))}
                 </div>
               <label className="text-sm text-gray-400">{form.property_type === "PG" ? "PG Name *" : "Apartment / Project *"}</label>
+                {form.property_type === "PG" ? (
+                  <input className={inp + " mt-1"} placeholder="e.g. Sri Sai PG, Rajajinagar" value={customProject} onChange={e => setCustomProject(e.target.value)} />
+                ) : (
                 <select className={inp + " mt-1"} value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
                   <option value="">Select...</option>
                   {PROJECTS.map(p => <option key={p}>{p}</option>)}
