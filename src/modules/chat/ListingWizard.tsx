@@ -193,6 +193,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
                   {PROJECTS.map(p => <option key={p}>{p}</option>)}
                 </select>
               </div>
+                )}
               {selectedProject === "Other" && (
                 <div>
                   <label className="text-sm text-gray-400">Apartment Name *</label>
