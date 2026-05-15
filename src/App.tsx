@@ -14,7 +14,6 @@ import MobileLayout from "./components/MobileLayout";
 import { supabase } from "./integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import RentRight from "./pages/RentRight";
-import RentRight from "./pages/RentRight";
 import { Property } from "./types/property";
 
 function App() {
