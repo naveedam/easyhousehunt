@@ -63,7 +63,11 @@ Special clauses: ${form.special || "None"}
 Begin with RENTAL AGREEMENT as the title. Draft the complete agreement now.`;
 
     try {
-      const text = await callGemini(prompt);
+      const raw = await callGemini(prompt);
+      const text = raw
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/^##\s*/gm, "")
+        .replace(/^#\s*/gm, "");
       setAgreement(text);
     } catch (e) {
       setAgreement("Error generating agreement. Please try again.");
