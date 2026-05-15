@@ -125,6 +125,9 @@ export default function ListingWizard({ onClose, onSuccess }: {
       landlord_id: user.id,
       property_type: form.property_type,
       occupancy: form.property_type === "PG" ? form.occupancy : null,
+      gender_preference: form.property_type === "PG" ? form.gender_preference : null,
+      meals_included: form.property_type === "PG" ? form.meals_included === "true" : null,
+      bathroom_type: form.property_type === "PG" ? form.bathroom_type : null,
     });
 
     setSaving(false);
@@ -317,6 +320,43 @@ export default function ListingWizard({ onClose, onSuccess }: {
                   ))}
                 </div>
               </div>
+              {form.property_type === "PG" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-gray-400">Gender Preference</label>
+                    <div className="flex gap-2 mt-2">
+                      {["Any", "Male Only", "Female Only"].map(g => (
+                        <button key={g} onClick={() => set("gender_preference", g)}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.gender_preference === g ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-400">Bathroom</label>
+                    <div className="flex gap-2 mt-2">
+                      {["Shared", "Attached"].map(b => (
+                        <button key={b} onClick={() => set("bathroom_type", b)}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.bathroom_type === b ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-400">Meals Included</label>
+                    <div className="flex gap-2 mt-2">
+                      {[["true","Yes ✓"],["false","No ✗"]].map(([val, label]) => (
+                        <button key={val} onClick={() => set("meals_included", val)}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.meals_included === val ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-sm text-gray-400">Description</label>
                 <textarea className={inp + " mt-1 h-28 resize-none"} placeholder="Lake view, quiet floor, near metro..." value={form.description} onChange={e => set("description", e.target.value)} />
@@ -415,7 +455,16 @@ export default function ListingWizard({ onClose, onSuccess }: {
                 <p className="text-gray-400 font-semibold mb-2">Listing Summary</p>
                 <p><span className="text-gray-400">Property:</span> <span className="text-white">{selectedProject === "Other" ? customProject : selectedProject}</span></p>
                 <p><span className="text-gray-400">Rent:</span> <span className="text-green-400 font-bold">₹{parseInt(form.rent || "0").toLocaleString()}/mo</span></p>
-                <p><span className="text-gray-400">BHK:</span> <span className="text-white">{form.bhk} BHK · {form.furnishing}</span></p>
+                {form.property_type === "PG" ? (
+                  <>
+                    <p><span className="text-gray-400">Type:</span> <span className="text-white">PG · {form.occupancy} Occupancy</span></p>
+                    <p><span className="text-gray-400">Gender:</span> <span className="text-white">{form.gender_preference}</span></p>
+                    <p><span className="text-gray-400">Meals:</span> <span className="text-white">{form.meals_included === "true" ? "Included ✓" : "Not included"}</span></p>
+                    <p><span className="text-gray-400">Bathroom:</span> <span className="text-white">{form.bathroom_type}</span></p>
+                  </>
+                ) : (
+                  <p><span className="text-gray-400">BHK:</span> <span className="text-white">{form.bhk} BHK · {form.furnishing}</span></p>
+                )}
                 {form.area_sqft && <p><span className="text-gray-400">Area:</span> <span className="text-white">{form.area_sqft} sqft</span></p>}
                 {amenities.length > 0 && <p><span className="text-gray-400">Amenities:</span> <span className="text-white">{amenities.length} selected</span></p>}
                 <p><span className="text-gray-400">Photos:</span> <span className="text-white">{photos.length} added</span></p>

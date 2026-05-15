@@ -27,6 +27,9 @@ export interface Database {
           media_urls: string[] | null;
           created_at: string;
           market: string;
+          gender_preference: string | null;
+          meals_included: boolean | null;
+          bathroom_type: string | null;
         };
         Insert: {
           id?: string;
@@ -41,6 +44,9 @@ export interface Database {
           amenities?: string[];
           description?: string;
           market?: string;
+          gender_preference?: string | null;
+          meals_included?: boolean | null;
+          bathroom_type?: string | null;
           latitude?: number;
           longitude?: number;
           media_urls?: string[] | null;
@@ -58,6 +64,9 @@ export interface Database {
           message: string;
           created_at: string;
           market: string;
+          gender_preference: string | null;
+          meals_included: boolean | null;
+          bathroom_type: string | null;
         };
         Insert: {
           id?: string;

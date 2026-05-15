@@ -7,6 +7,7 @@ export interface Filters {
   furnishing: string[];
   search: string;
   propertyType: string;
+  occupancy: string[];
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -16,6 +17,7 @@ const DEFAULT_FILTERS: Filters = {
   furnishing: [],
   search: "",
   propertyType: "All",
+  occupancy: [],
 };
 
 export default function SearchFilters({
@@ -46,6 +48,12 @@ export default function SearchFilters({
     update({ furnishing: next });
   };
 
+  const toggleOccupancy = (o: string) => {
+    const next = filters.occupancy.includes(o)
+      ? filters.occupancy.filter((x) => x !== o)
+      : [...filters.occupancy, o];
+    update({ occupancy: next });
+  };
   const reset = () => {
     setFilters(DEFAULT_FILTERS);
     onChange(DEFAULT_FILTERS);
@@ -56,6 +64,7 @@ export default function SearchFilters({
     filters.furnishing.length > 0,
     filters.minRent > 0 || filters.maxRent < 200000,
     filters.propertyType !== "All",
+    filters.occupancy.length > 0,
   ].filter(Boolean).length;
 
   return (
@@ -138,6 +147,24 @@ export default function SearchFilters({
           </div>
           )}
 
+          {/* Occupancy - PG only */}
+          {filters.propertyType === "PG" && (
+          <div>
+            <p className="text-xs text-gray-400 mb-2">Occupancy</p>
+            <div className="flex gap-2">
+              {["Single", "Double", "Triple"].map((o) => (
+                <button key={o} onClick={() => toggleOccupancy(o)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border ${
+                    filters.occupancy.includes(o)
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : "bg-gray-800 border-gray-600 text-gray-300"
+                  }`}>
+                  {o}
+                </button>
+              ))}
+            </div>
+          </div>
+          )}
           {/* Rent range */}
           <div>
             <div className="flex justify-between mb-1">
