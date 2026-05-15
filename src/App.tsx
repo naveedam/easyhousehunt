@@ -170,10 +170,6 @@ function App() {
                         className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
                         ⚖️ RentRight
                       </button>
-                      <button onClick={() => { setRentRightOpen(true); setMenuOpen(false); }}
-                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
-                        ⚖️ RentRight
-                      </button>
                       {effectiveAdmin && (
                         <button onClick={() => { setAdminDashOpen(true); setMenuOpen(false); }}
                           className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
