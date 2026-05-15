@@ -22,7 +22,7 @@ export default function AdminPanel() {
 
   const fetchData = async () => {
     const [propRes, userRes, bookRes] = await Promise.all([
-      supabase.from('properties').select('*, profiles:landlord_id(full_name)').order('created_at', { ascending: false }),
+      supabase.from('properties').select('*, profiles:landlord_id(full_name)').eq('market', 'india').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*, user_roles(role)').order('created_at', { ascending: false }),
       supabase.from('bookings').select('*, properties(title), profiles:tenant_id(full_name)').order('created_at', { ascending: false }),
     ]);

@@ -25,7 +25,7 @@ export default function LandlordDashboard() {
   }, [user]);
 
   const fetchData = async () => {
-    const propRes = await supabase.from('properties').select('*').eq('landlord_id', user!.id).order('created_at', { ascending: false });
+    const propRes = await supabase.from('properties').select('*').eq('market', 'india').eq('landlord_id', user!.id).order('created_at', { ascending: false });
     const propIds = propRes.data?.map(p => p.id) || [];
 
     const enqRes = propIds.length > 0

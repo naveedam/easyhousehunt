@@ -47,6 +47,7 @@ export default function Index() {
     const { data, error } = await (supabase as any)
       .from("properties")
       .select("*")
+      .eq("market", "india")
       .order("created_at", { ascending: false });
 
     if (error) {

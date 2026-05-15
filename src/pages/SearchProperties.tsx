@@ -11,6 +11,7 @@ export default function SearchProperties() {
       const { data, error } = await supabase
         .from("properties")
         .select("*")
+        .eq("market", "india")
         .order("created_at", { ascending: false });
 
       if (error) {

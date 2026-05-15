@@ -21,6 +21,7 @@ export default function MobileLayout({
   onOwnerDash,
   isAdmin,
   onAdminDash,
+  onRentRight,
   detailProperty,
   onCloseDetail,
   onConnectOwner,
@@ -37,6 +38,7 @@ export default function MobileLayout({
   onOwnerDash: () => void;
   isAdmin: boolean;
   onAdminDash: () => void;
+  onRentRight: () => void;
   detailProperty: Property | null;
   onCloseDetail: () => void;
   onConnectOwner: () => void;
@@ -111,6 +113,10 @@ export default function MobileLayout({
                         ⚙️ Admin Panel
                       </button>
                     )}
+                    <button onClick={() => { onRentRight(); setMobileMenuOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                      🛡️ RentRight
+                    </button>
                     <div className="border-t border-gray-700">
                       <button onClick={() => { onSignOut(); setMobileMenuOpen(false); }}
                         className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2">

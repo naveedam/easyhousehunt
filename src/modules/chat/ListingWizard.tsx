@@ -109,6 +109,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
     const uploadedUrls = await uploadPhotos();
 
     const { error: err } = await supabase.from("properties").insert({
+      market: "india",
       title: form.property_type === "PG" ? customProject : (selectedProject === "Other" ? customProject : selectedProject),
       address: form.address,
       rent: parseInt(form.rent) || 0,

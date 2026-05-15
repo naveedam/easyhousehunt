@@ -42,6 +42,7 @@ function App() {
       const { data, error } = await supabase
         .from("properties")
         .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy")
+        .eq("market", "india")
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .limit(100);
@@ -125,6 +126,7 @@ function App() {
     onOwnerDash: () => setOwnerDashOpen(true),
     isAdmin,
     onAdminDash: () => setAdminDashOpen(true),
+    onRentRight: () => setRentRightOpen(true),
     detailProperty,
     onCloseDetail: () => setDetailProperty(null),
     onConnectOwner: handleConnectWithOwner,
@@ -254,7 +256,6 @@ function App() {
       {ownerDashOpen && <OwnerDashboard onClose={() => setOwnerDashOpen(false)} />}
       {tenantDashOpen && <TenantDashboard onClose={() => setTenantDashOpen(false)} />}
       {adminDashOpen && <AdminDashboard onClose={() => setAdminDashOpen(false)} />}
-      {rentRightOpen && <RentRight onClose={() => setRentRightOpen(false)} />}
       {rentRightOpen && <RentRight onClose={() => setRentRightOpen(false)} />}
     </>
   );

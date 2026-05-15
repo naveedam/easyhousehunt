@@ -19,6 +19,7 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
     const { data: props, count: pCount } = await supabase
       .from("properties")
       .select("id, title, rent, bhk, address, created_at, landlord_id, latitude, longitude", { count: "exact" })
+      .eq("market", "india")
       .order("created_at", { ascending: false })
       .limit(100);
 

@@ -23,6 +23,7 @@ export default function PropertyDetail() {
     const { data, error } = await (supabase as any)
       .from("properties")
       .select("*")
+      .eq("market", "india")
       .eq("id", id)
       .single();
 

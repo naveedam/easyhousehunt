@@ -32,6 +32,7 @@ export default function OwnerDashboard({ onClose }: { onClose: () => void }) {
     const { data: props } = await supabase
       .from("properties")
       .select("id, title, rent, bhk, address, created_at")
+      .eq("market", "india")
       .eq("landlord_id", user.id)
       .order("created_at", { ascending: false });
 

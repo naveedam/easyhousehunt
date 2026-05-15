@@ -26,6 +26,7 @@ export interface Database {
           longitude: number;
           media_urls: string[] | null;
           created_at: string;
+          market: string;
         };
         Insert: {
           id?: string;
@@ -39,6 +40,7 @@ export interface Database {
           furnishing: string;
           amenities?: string[];
           description?: string;
+          market?: string;
           latitude?: number;
           longitude?: number;
           media_urls?: string[] | null;
@@ -55,6 +57,7 @@ export interface Database {
           receiver_id: string;
           message: string;
           created_at: string;
+          market: string;
         };
         Insert: {
           id?: string;
