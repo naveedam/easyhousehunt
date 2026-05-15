@@ -25,7 +25,7 @@ const defaultForm: FormData = {
   pets: "Not allowed", increment: "5%", special: "",
 };
 
-export default function RentRight() {
+export default function RentRight({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("generate");
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<FormData>(defaultForm);
@@ -40,13 +40,13 @@ export default function RentRight() {
   async function generateAgreement() {
     setLoading(true);
     setAgreement("");
-    const prompt = `You are an expert in Karnataka tenancy law. Draft a complete, legally sound 11-month rental agreement for the following. Use formal legal language with numbered sections covering: parties, property description, term, rent, deposit, maintenance, termination, notice period, and dispute resolution (Bangalore jurisdiction).
+    const prompt = `You are an expert in Karnataka tenancy law. Draft a complete, legally sound rental agreement for the following details. Use formal legal language with numbered sections covering: parties, property description, term, rent, deposit, maintenance, termination, notice period, and dispute resolution (Bangalore jurisdiction).
 
 Property: ${form.address} (${form.propType}, ${form.furnishing})
 Landlord: ${form.llName}, ID ending ${form.llId}, address: ${form.llAddress}
 Tenant: ${form.tnName}, ID ending ${form.tnId}, address: ${form.tnAddress}, profession: ${form.tnJob}
-Monthly Rent: ₹${form.rent}, due on ${form.dueDate}
-Security Deposit: ₹${form.deposit}
+Monthly Rent: Rs.${form.rent}, due on ${form.dueDate}
+Security Deposit: Rs.${form.deposit}
 Start: ${form.start}, Duration: ${form.duration}, Lock-in: ${form.lockin}
 Maintenance: ${form.maint}, Parking: ${form.parking}, Pets: ${form.pets}
 Annual increment: ${form.increment}
@@ -82,7 +82,7 @@ Agreement: ${reviewText}`;
 
     try {
       const result = await geminiModel.generateContent(prompt);
-      const raw = result.response.text().replace(/```json|```/g, "").trim();
+      const raw = result.response.text().replace(/\`\`\`json|\`\`\`/g, "").trim();
       setReviewResult(JSON.parse(raw));
     } catch (e) {
       setReviewResult({ summary: "Could not parse results. Please try again.", risk_level: "MEDIUM", clauses: [] });
@@ -107,247 +107,229 @@ Agreement: ${reviewText}`;
   const riskBorder: Record<string, string> = { RED: "#f87171", AMBER: "#fbbf24", GREEN: "#4ade80" };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-9 h-9 rounded-lg bg-green-900 flex items-center justify-content-center">
-            <span className="text-green-400 text-lg">⚖</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">RentRight</h1>
-            <p className="text-xs text-gray-500">Karnataka rent agreements, done right</p>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-6">
-          {(["generate", "review"] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${tab === t ? "bg-green-900 text-green-400" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
-              {t === "generate" ? "📝 Generate Agreement" : "🔍 Review My Agreement"}
-            </button>
-          ))}
-        </div>
-
-        {/* GENERATE FLOW */}
-        {tab === "generate" && (
-          <div>
-            {/* Progress */}
-            <div className="flex gap-1.5 mb-4">
-              {[1, 2, 3].map(n => (
-                <div key={n} className={`h-1 flex-1 rounded-full transition-colors ${n < step ? "bg-green-400" : n === step ? "bg-green-900" : "bg-gray-200"}`} />
-              ))}
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-green-900 flex items-center justify-center text-green-400 text-base">⚖</div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">RentRight</h2>
+              <p className="text-xs text-gray-400">Karnataka rent agreements, done right</p>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Step {step} of 3 — <span className="font-medium text-gray-700">{["", "Property details", "Tenant & rent", "Terms & generate"][step]}</span>
-            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl font-light">✕</button>
+        </div>
 
-            {/* Step 1 */}
-            {step === 1 && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Property</p>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Full address</label>
-                    <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.address} onChange={set("address")} placeholder="Flat 4B, Prestige Lakeside, Whitefield, Bangalore 560066" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Type</label>
-                      <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.propType} onChange={set("propType")}>
-                        {["1 BHK Apartment","2 BHK Apartment","3 BHK Apartment","Independent House","PG / Room","Studio Apartment"].map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Furnishing</label>
-                      <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.furnishing} onChange={set("furnishing")}>
-                        {["Fully Furnished","Semi Furnished","Unfurnished"].map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Landlord</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Full name</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.llName} onChange={set("llName")} placeholder="Rajesh Kumar" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Aadhaar/PAN (last 4)</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.llId} onChange={set("llId")} placeholder="XXXX1234" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Permanent address</label>
-                    <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.llAddress} onChange={set("llAddress")} placeholder="Permanent address" />
-                  </div>
-                </div>
-                <button onClick={() => setStep(2)} className="w-full bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium">Next — Tenant & Rent →</button>
+        <div className="p-5">
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden mb-5">
+            {(["generate", "review"] as Tab[]).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className={"flex-1 py-2.5 text-sm font-medium transition-colors " + (tab === t ? "bg-green-900 text-green-400" : "bg-white text-gray-500 hover:bg-gray-50")}>
+                {t === "generate" ? "📝 Generate Agreement" : "🔍 Review My Agreement"}
+              </button>
+            ))}
+          </div>
+
+          {tab === "generate" && (
+            <div>
+              <div className="flex gap-1.5 mb-3">
+                {[1, 2, 3].map(n => (
+                  <div key={n} className={"h-1 flex-1 rounded-full transition-colors " + (n < step ? "bg-green-400" : n === step ? "bg-green-900" : "bg-gray-200")} />
+                ))}
               </div>
-            )}
+              <p className="text-xs text-gray-500 mb-4">
+                Step {step} of 3 — <span className="font-medium text-gray-700">{["","Property details","Tenant & rent","Terms & generate"][step]}</span>
+              </p>
 
-            {/* Step 2 */}
-            {step === 2 && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Tenant</p>
-                  <div className="grid grid-cols-2 gap-3">
+              {step === 1 && (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Property</p>
                     <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Full name</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.tnName} onChange={set("tnName")} placeholder="Priya Sharma" />
+                      <label className="text-xs text-gray-500 mb-1 block">Full address</label>
+                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.address} onChange={set("address")} placeholder="Flat 4B, Prestige Lakeside, Whitefield, Bangalore 560066" />
                     </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Aadhaar/PAN (last 4)</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.tnId} onChange={set("tnId")} placeholder="XXXX5678" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Type</label>
+                        <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={form.propType} onChange={set("propType")}>
+                          {["1 BHK Apartment","2 BHK Apartment","3 BHK Apartment","Independent House","PG / Room","Studio Apartment"].map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Furnishing</label>
+                        <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={form.furnishing} onChange={set("furnishing")}>
+                          {["Fully Furnished","Semi Furnished","Unfurnished"].map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Landlord</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Full name</label>
+                        <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.llName} onChange={set("llName")} placeholder="Rajesh Kumar" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Aadhaar/PAN (last 4)</label>
+                        <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.llId} onChange={set("llId")} placeholder="XXXX1234" />
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Permanent address</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.tnAddress} onChange={set("tnAddress")} placeholder="Home state address" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Profession</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.tnJob} onChange={set("tnJob")} placeholder="Software Engineer" />
+                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.llAddress} onChange={set("llAddress")} placeholder="Permanent address" />
                     </div>
                   </div>
+                  <button onClick={() => setStep(2)} className="w-full bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium">Next — Tenant & Rent →</button>
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Rent & deposit</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Monthly rent (₹)</label>
-                      <input type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.rent} onChange={set("rent")} placeholder="25000" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Deposit (₹)</label>
-                      <input type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.deposit} onChange={set("deposit")} placeholder="75000" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Due date</label>
-                      <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.dueDate} onChange={set("dueDate")}>
-                        {["1st of month","5th of month","10th of month"].map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Start date</label>
-                      <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.start} onChange={set("start")} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Duration</label>
-                      <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.duration} onChange={set("duration")}>
-                        {["11 months","12 months","24 months"].map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">Lock-in</label>
-                      <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.lockin} onChange={set("lockin")}>
-                        {["None","3 months","6 months","11 months"].map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700">← Back</button>
-                  <button onClick={() => setStep(3)} className="flex-1 bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium">Next — Terms →</button>
-                </div>
-              </div>
-            )}
+              )}
 
-            {/* Step 3 */}
-            {step === 3 && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Additional terms</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: "Maintenance", key: "maint", opts: ["Paid by tenant","Paid by landlord","Shared equally"] },
-                      { label: "Parking", key: "parking", opts: ["1 parking included","2 parkings included","No parking"] },
-                      { label: "Pets", key: "pets", opts: ["Not allowed","Allowed","With prior permission"] },
-                      { label: "Annual increment", key: "increment", opts: ["5%","8%","10%","None"] },
-                    ].map(({ label, key, opts }) => (
-                      <div key={key}>
-                        <label className="text-xs text-gray-500 mb-1 block">{label}</label>
-                        <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={(form as any)[key]} onChange={set(key as keyof FormData)}>
-                          {opts.map(o => <option key={o}>{o}</option>)}
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Tenant</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "Full name", key: "tnName", placeholder: "Priya Sharma" },
+                        { label: "Aadhaar/PAN (last 4)", key: "tnId", placeholder: "XXXX5678" },
+                        { label: "Permanent address", key: "tnAddress", placeholder: "Home state address" },
+                        { label: "Profession", key: "tnJob", placeholder: "Software Engineer" },
+                      ].map(({ label, key, placeholder }) => (
+                        <div key={key}>
+                          <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                          <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={(form as any)[key]} onChange={set(key as keyof FormData)} placeholder={placeholder} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Rent & deposit</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Monthly rent (Rs.)</label>
+                        <input type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.rent} onChange={set("rent")} placeholder="25000" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Deposit (Rs.)</label>
+                        <input type="number" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.deposit} onChange={set("deposit")} placeholder="75000" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Due date</label>
+                        <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={form.dueDate} onChange={set("dueDate")}>
+                          {["1st of month","5th of month","10th of month"].map(o => <option key={o}>{o}</option>)}
                         </select>
                       </div>
-                    ))}
-                    <div className="col-span-2">
-                      <label className="text-xs text-gray-500 mb-1 block">Special clauses (optional)</label>
-                      <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.special} onChange={set("special")} placeholder="e.g. No subletting, 60 days notice period..." />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setStep(2)} className="flex-1 border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700">← Back</button>
-                  <button onClick={generateAgreement} disabled={loading} className="flex-1 bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40">
-                    {loading ? "Drafting..." : "✦ Generate Agreement"}
-                  </button>
-                </div>
-
-                {agreement && (
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700">✓ Agreement ready</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => navigator.clipboard.writeText(agreement)} className="text-xs border border-gray-200 px-3 py-1.5 rounded-lg text-gray-600 hover:bg-gray-50">Copy</button>
-                        <button onClick={downloadPDF} className="text-xs bg-green-900 text-green-400 px-3 py-1.5 rounded-lg">Download PDF</button>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Start date</label>
+                        <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.start} onChange={set("start")} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Duration</label>
+                        <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={form.duration} onChange={set("duration")}>
+                          {["11 months","12 months","24 months"].map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Lock-in</label>
+                        <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={form.lockin} onChange={set("lockin")}>
+                          {["None","3 months","6 months","11 months"].map(o => <option key={o}>{o}</option>)}
+                        </select>
                       </div>
                     </div>
-                    <pre className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs leading-relaxed whitespace-pre-wrap text-gray-800 max-h-96 overflow-y-auto">{agreement}</pre>
-                    <p className="text-xs text-gray-400 mt-2">AI-generated for reference only. Execute on stamp paper at Sub-Registrar office for legal validity.</p>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                  <div className="flex gap-2">
+                    <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700">← Back</button>
+                    <button onClick={() => setStep(3)} className="flex-1 bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium">Next — Terms →</button>
+                  </div>
+                </div>
+              )}
 
-        {/* REVIEW FLOW */}
-        {tab === "review" && (
-          <div className="space-y-4">
-            {!reviewResult ? (
-              <>
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Paste your agreement</p>
-                  <textarea
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
-                    rows={10} value={reviewText} onChange={e => setReviewText(e.target.value)}
-                    placeholder="Paste your rent agreement text here..." />
-                </div>
-                <button onClick={reviewAgreement} disabled={loading || !reviewText.trim()} className="w-full bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40">
-                  {loading ? "Reviewing clauses..." : "🔍 Review Agreement"}
-                </button>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Overall risk</span>
-                    <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: riskBg[reviewResult.risk_level], color: riskText[reviewResult.risk_level] }}>
-                      {reviewResult.risk_level}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">{reviewResult.summary}</p>
-                </div>
-                {reviewResult.clauses?.map((c: any, i: number) => (
-                  <div key={i} className="rounded-xl p-4 border-l-2" style={{ background: riskBg[c.risk], borderColor: riskBorder[c.risk] }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: riskBorder[c.risk], color: riskText[c.risk] }}>{c.risk}</span>
-                      <span className="text-sm font-medium" style={{ color: riskText[c.risk] }}>{c.title}</span>
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Additional terms</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "Maintenance", key: "maint", opts: ["Paid by tenant","Paid by landlord","Shared equally"] },
+                        { label: "Parking", key: "parking", opts: ["1 parking included","2 parkings included","No parking"] },
+                        { label: "Pets", key: "pets", opts: ["Not allowed","Allowed","With prior permission"] },
+                        { label: "Annual increment", key: "increment", opts: ["5%","8%","10%","None"] },
+                      ].map(({ label, key, opts }) => (
+                        <div key={key}>
+                          <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                          <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" value={(form as any)[key]} onChange={set(key as keyof FormData)}>
+                            {opts.map(o => <option key={o}>{o}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 mb-1 block">Special clauses (optional)</label>
+                        <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" value={form.special} onChange={set("special")} placeholder="e.g. No subletting, 60 days notice period..." />
+                      </div>
                     </div>
-                    <p className="text-xs leading-relaxed" style={{ color: riskText[c.risk] }}>{c.text}</p>
                   </div>
-                ))}
-                <button onClick={() => { setReviewResult(null); setReviewText(""); }} className="w-full border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700">↺ New review</button>
-                <p className="text-xs text-gray-400 text-center">AI-generated guidance, not legal advice.</p>
-              </div>
-            )}
-          </div>
-        )}
+                  <div className="flex gap-2">
+                    <button onClick={() => setStep(2)} className="flex-1 border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700">← Back</button>
+                    <button onClick={generateAgreement} disabled={loading} className="flex-1 bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40">
+                      {loading ? "Drafting..." : "✦ Generate Agreement"}
+                    </button>
+                  </div>
+                  {agreement && (
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700">✓ Agreement ready</span>
+                        <div className="flex gap-2">
+                          <button onClick={() => navigator.clipboard.writeText(agreement)} className="text-xs border border-gray-200 px-3 py-1.5 rounded-lg text-gray-600 hover:bg-gray-50">Copy</button>
+                          <button onClick={downloadPDF} className="text-xs bg-green-900 text-green-400 px-3 py-1.5 rounded-lg">Download PDF</button>
+                        </div>
+                      </div>
+                      <pre className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs leading-relaxed whitespace-pre-wrap text-gray-800 max-h-80 overflow-y-auto">{agreement}</pre>
+                      <p className="text-xs text-gray-400 mt-2">AI-generated for reference only. Execute on stamp paper at Sub-Registrar office for legal validity.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
+          {tab === "review" && (
+            <div className="space-y-4">
+              {!reviewResult ? (
+                <>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">Paste your agreement</p>
+                    <textarea className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none bg-white" rows={10} value={reviewText} onChange={e => setReviewText(e.target.value)} placeholder="Paste your rent agreement text here..." />
+                  </div>
+                  <button onClick={reviewAgreement} disabled={loading || !reviewText.trim()} className="w-full bg-green-900 text-green-400 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40">
+                    {loading ? "Reviewing clauses..." : "🔍 Review Agreement"}
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-800">Overall risk</span>
+                      <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: riskBg[reviewResult.risk_level], color: riskText[reviewResult.risk_level] }}>{reviewResult.risk_level}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed">{reviewResult.summary}</p>
+                  </div>
+                  {reviewResult.clauses?.map((c: any, i: number) => (
+                    <div key={i} className="rounded-xl p-4 border-l-2" style={{ background: riskBg[c.risk], borderColor: riskBorder[c.risk] }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: riskBorder[c.risk], color: riskText[c.risk] }}>{c.risk}</span>
+                        <span className="text-sm font-medium" style={{ color: riskText[c.risk] }}>{c.title}</span>
+                      </div>
+                      <p className="text-xs leading-relaxed" style={{ color: riskText[c.risk] }}>{c.text}</p>
+                    </div>
+                  ))}
+                  <button onClick={() => { setReviewResult(null); setReviewText(""); }} className="w-full border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700">↺ New review</button>
+                  <p className="text-xs text-gray-400 text-center">AI-generated guidance, not legal advice.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

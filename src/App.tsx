@@ -13,6 +13,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import MobileLayout from "./components/MobileLayout";
 import { supabase } from "./integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import RentRight from "./pages/RentRight";
+import RentRight from "./pages/RentRight";
 import { Property } from "./types/property";
 
 function App() {
@@ -30,6 +32,8 @@ function App() {
   const [ownerDashOpen, setOwnerDashOpen] = useState(false);
   const [tenantDashOpen, setTenantDashOpen] = useState(false);
   const [adminDashOpen, setAdminDashOpen] = useState(false);
+  const [rentRightOpen, setRentRightOpen] = useState(false);
+  const [rentRightOpen, setRentRightOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: "", propertyType: "All"
@@ -164,6 +168,14 @@ function App() {
                         className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
                         🏠 My Listings
                       </button>
+                      <button onClick={() => { setRentRightOpen(true); setMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                        ⚖️ RentRight
+                      </button>
+                      <button onClick={() => { setRentRightOpen(true); setMenuOpen(false); }}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
+                        ⚖️ RentRight
+                      </button>
                       {effectiveAdmin && (
                         <button onClick={() => { setAdminDashOpen(true); setMenuOpen(false); }}
                           className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
@@ -248,6 +260,8 @@ function App() {
       {ownerDashOpen && <OwnerDashboard onClose={() => setOwnerDashOpen(false)} />}
       {tenantDashOpen && <TenantDashboard onClose={() => setTenantDashOpen(false)} />}
       {adminDashOpen && <AdminDashboard onClose={() => setAdminDashOpen(false)} />}
+      {rentRightOpen && <RentRight onClose={() => setRentRightOpen(false)} />}
+      {rentRightOpen && <RentRight onClose={() => setRentRightOpen(false)} />}
     </>
   );
 }
