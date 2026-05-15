@@ -33,7 +33,6 @@ function App() {
   const [tenantDashOpen, setTenantDashOpen] = useState(false);
   const [adminDashOpen, setAdminDashOpen] = useState(false);
   const [rentRightOpen, setRentRightOpen] = useState(false);
-  const [rentRightOpen, setRentRightOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: "", propertyType: "All"
