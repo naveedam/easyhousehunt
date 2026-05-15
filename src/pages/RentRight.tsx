@@ -1,6 +1,14 @@
 import { useState } from "react";
-import { geminiModel } from "@/lib/gemini";
 import jsPDF from "jspdf";
+import { supabase } from "@/integrations/supabase/client";
+
+async function callGemini(prompt: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("gemini-proxy", {
+    body: { prompt },
+  });
+  if (error) throw error;
+  return data.text;
+}
 
 type Tab = "generate" | "review";
 type Step = 1 | 2 | 3;
@@ -55,8 +63,8 @@ Special clauses: ${form.special || "None"}
 Begin with RENTAL AGREEMENT as the title. Draft the complete agreement now.`;
 
     try {
-      const result = await geminiModel.generateContent(prompt);
-      setAgreement(result.response.text());
+      const text = await callGemini(prompt);
+      setAgreement(text);
     } catch (e) {
       setAgreement("Error generating agreement. Please try again.");
     }
@@ -81,8 +89,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
 Agreement: ${reviewText}`;
 
     try {
-      const result = await geminiModel.generateContent(prompt);
-      const raw = result.response.text().replace(/\`\`\`json|\`\`\`/g, "").trim();
+      const raw = (await callGemini(prompt)).replace(/```json|```/g, "").trim();
       setReviewResult(JSON.parse(raw));
     } catch (e) {
       setReviewResult({ summary: "Could not parse results. Please try again.", risk_level: "MEDIUM", clauses: [] });
