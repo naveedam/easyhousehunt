@@ -34,7 +34,7 @@ function App() {
   const [rentRightOpen, setRentRightOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filters, setFilters] = useState<Filters>({
-    bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: "", propertyType: "All"
+    bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: "", propertyType: "All", occupancy: []
   });
 
   async function fetchProperties() {
@@ -213,7 +213,8 @@ function App() {
           <MapView
             properties={filteredProperties}
             selectedProperty={selectedProperty}
-            onMarkerClick={(p) => { setSelectedProperty(p); setDetailProperty(p); }}
+            onMarkerClick={(p) => setSelectedProperty(p)}
+            onViewDetails={(p) => setDetailProperty(p)}
           />
         </div>
       </div>

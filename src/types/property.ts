@@ -1,4 +1,8 @@
 export type Property = {
+  property_type?: string | null;
+  occupancy?: string | null;
+  is_verified?: boolean | null;
+  landlord_id?: string | null;
   id: string;
   title: string;
   rent: number;

@@ -45,8 +45,7 @@ export function useMapBounds(debounceMs = 400) {
 
     const { data } = await supabase
       .from('properties')
-      .select(
-      .eq('market', 'india')`
+      .select(`
         id, title, rent, bhk, address, furnishing, property_type,
         latitude, longitude, is_verified, is_instant_move_in, area_sqft, availability_date,
         property_images(image_url, is_primary)

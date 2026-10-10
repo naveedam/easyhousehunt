@@ -72,8 +72,7 @@ export default function MobileLayout({
 
   const handleMarkerClick = (p: Property) => {
     setSelectedProperty(p);
-    onSelectProperty(p);
-    setSheetState("half");
+    setSheetState("peek");
   };
 
   return (
@@ -142,6 +141,8 @@ export default function MobileLayout({
           properties={properties}
           selectedProperty={selectedProperty}
           onMarkerClick={handleMarkerClick}
+          onViewDetails={(p) => onSelectProperty(p)}
+          previewBottom={`calc(${sheetHeights[sheetState]} + 16px)`}
         />
       </div>
 
