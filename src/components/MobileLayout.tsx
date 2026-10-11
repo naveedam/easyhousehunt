@@ -147,7 +147,7 @@ export default function MobileLayout({
           selectedProperty={selectedProperty}
           onMarkerClick={handleMarkerClick}
           onViewDetails={(p) => onSelectProperty(p)}
-          searchQuery={filters.search}
+          searchQuery={filters.search || filters.area?.name || ""}
           previewBottom={`calc(${sheetHeights[sheetState]} + 16px)`}
         />
       </div>

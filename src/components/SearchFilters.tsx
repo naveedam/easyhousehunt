@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { buildIndex, getSuggestions, type Suggestion } from "@/lib/searchIndex";
+import { useSearchableProperties, useSearchNote } from "@/lib/searchStore";
 
 export interface Filters {
   bhk: number[];
@@ -8,6 +10,7 @@ export interface Filters {
   search: string;
   propertyType: string;
   occupancy: string[];
+  area?: { name: string; lat: number; lng: number } | null;
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -18,6 +21,7 @@ const DEFAULT_FILTERS: Filters = {
   search: "",
   propertyType: "All",
   occupancy: [],
+  area: null,
 };
 
 export default function SearchFilters({
@@ -27,6 +31,36 @@ export default function SearchFilters({
 }) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [expanded, setExpanded] = useState(false);
+
+  // Suggestions: apartment names from live listings + a bundled list of Bengaluru areas
+  const allProperties = useSearchableProperties();
+  const searchNote = useSearchNote();
+  const index = useMemo(() => buildIndex(allProperties), [allProperties]);
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const suggestions = useMemo(
+    () => (open ? getSuggestions(index, filters.search) : []),
+    [open, index, filters.search]
+  );
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, []);
+
+  const pick = (s: Suggestion) => {
+    setOpen(false);
+    setHighlight(-1);
+    if (s.kind === "area" && s.lat != null && s.lng != null) {
+      update({ search: "", area: { name: s.label, lat: s.lat, lng: s.lng } });
+    } else {
+      update({ search: s.label, area: null });
+    }
+  };
 
   const update = (patch: Partial<Filters>) => {
     const next = { ...filters, ...patch };
@@ -70,14 +104,93 @@ export default function SearchFilters({
   return (
     <div className="px-4 pb-2">
       {/* Search bar */}
-      <div className="relative mb-2">
-        <input
-          className="w-full bg-gray-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-          placeholder="Search by name or area..."
-          value={filters.search}
-          onChange={(e) => update({ search: e.target.value })}
-        />
-        <span className="absolute left-2.5 top-2.5 text-gray-500 text-sm">🔍</span>
+      <div ref={boxRef} className="mb-2">
+        <div className="relative">
+          <input
+            className="w-full bg-gray-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="Search by name or area..."
+            value={filters.search}
+            onFocus={() => setOpen(true)}
+            onChange={(e) => {
+              update({ search: e.target.value, area: null });
+              setOpen(true);
+              setHighlight(-1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setOpen(true);
+                setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setHighlight((h) => Math.max(h - 1, -1));
+              } else if (e.key === "Enter") {
+                if (highlight >= 0 && suggestions[highlight]) {
+                  e.preventDefault();
+                  pick(suggestions[highlight]);
+                } else {
+                  setOpen(false);
+                  (e.target as HTMLInputElement).blur();
+                }
+              } else if (e.key === "Escape") {
+                setOpen(false);
+              }
+            }}
+          />
+          <span className="absolute left-2.5 top-2.5 text-gray-500 text-sm">🔍</span>
+        </div>
+
+        {open && suggestions.length > 0 && (
+          <div
+            role="listbox"
+            className="mt-1 max-h-56 overflow-y-auto rounded-lg bg-gray-800 shadow-lg ring-1 ring-white/10"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            {suggestions.map((s, i) => (
+              <button
+                key={s.key}
+                role="option"
+                aria-selected={i === highlight}
+                onClick={() => pick(s)}
+                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm ${
+                  i === highlight ? "bg-gray-700" : "hover:bg-gray-700"
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-white">
+                    {s.kind === "area" ? "📍 " : "🏢 "}
+                    {s.label}
+                  </span>
+                  <span className="block text-xs text-gray-400">{s.kind === "area" ? "Area" : "Apartment"}</span>
+                </span>
+                <span className="flex-shrink-0 text-xs text-gray-400">
+                  {s.kind === "area"
+                    ? s.count > 0
+                      ? `${s.count} within 2.5 km`
+                      : "none nearby yet"
+                    : `${s.count} listing${s.count === 1 ? "" : "s"}`}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filters.area && (
+          <div className="mt-2 flex items-center justify-between rounded-lg bg-gray-800 px-3 py-2 text-xs text-white">
+            <span>
+              📍 Listings near <b>{filters.area.name}</b>
+            </span>
+            <button
+              onClick={() => update({ area: null })}
+              aria-label="Clear area"
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {filters.area && searchNote && <p className="mt-1 text-xs text-yellow-300">{searchNote}</p>}
       </div>
 
       {/* Filter toggle */}

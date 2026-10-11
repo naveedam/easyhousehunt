@@ -19,3 +19,5 @@ export function formatDistance(m: number): string {
   if (m < 1000) return `${Math.max(10, Math.round(m / 10) * 10)} m`;
   return `${(m / 1000).toFixed(1)} km`;
 }
+
+export const AREA_RADIUS_M = 2500; // "near an area" = within 2.5 km of its centre

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import MapView from "./components/map/MapView";
 import { useUserLocation } from "@/hooks/useUserLocation";
-import { distanceMeters } from "@/lib/geo";
+import { AREA_RADIUS_M, distanceMeters } from "@/lib/geo";
+import { setSearchableProperties, setSearchNote } from "@/lib/searchStore";
 import PropertyList from "./components/map/PropertyList";
 import PropertyDetail from "./components/map/PropertyDetail";
 import AuthModal from "@/components/ui/AuthModal";
@@ -107,17 +108,39 @@ function App() {
     return true;
   });
 
-  const filteredProperties = userLoc
-    ? filteredByFilters
-        .map((p) => ({
-          ...p,
-          distance_m:
-            p.latitude != null && p.longitude != null
-              ? distanceMeters(userLoc, { lat: p.latitude, lng: p.longitude })
-              : null,
-        }))
-        .sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity))
-    : filteredByFilters;
+  // Area focus (picked from the search suggestions): listings within AREA_RADIUS_M, nearest first.
+  // If there are none, show the nearest few so nobody is left on an empty map.
+  let areaNote: string | null = null;
+  let scoped = filteredByFilters;
+  const focus = filters.area;
+  if (focus) {
+    const ranked = filteredByFilters
+      .filter((p) => p.latitude != null && p.longitude != null)
+      .map((p) => ({ p, d: distanceMeters(focus, { lat: p.latitude!, lng: p.longitude! }) }))
+      .sort((a, b) => a.d - b.d);
+    const within = ranked.filter((r) => r.d <= AREA_RADIUS_M);
+    if (ranked.length === 0) {
+      areaNote = "No listings match your filters.";
+    } else if (within.length === 0) {
+      areaNote = `No listings within 2.5 km of ${focus.name} yet. Showing the nearest ones.`;
+    }
+    scoped = (within.length > 0 ? within : ranked.slice(0, 8)).map((r) => r.p);
+  }
+
+  const withDistance: Property[] = scoped.map((p) => ({
+    ...p,
+    distance_m:
+      userLoc && p.latitude != null && p.longitude != null
+        ? distanceMeters(userLoc, { lat: p.latitude, lng: p.longitude })
+        : null,
+  }));
+  const filteredProperties: Property[] =
+    userLoc && !focus
+      ? [...withDistance].sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity))
+      : withDistance;
+
+  useEffect(() => { setSearchableProperties(properties); }, [properties]);
+  useEffect(() => { setSearchNote(areaNote); }, [areaNote]);
 
   const handleListProperty = () => {
     if (user) { setWizardOpen(true); }
@@ -236,7 +259,7 @@ function App() {
             selectedProperty={selectedProperty}
             onMarkerClick={(p) => setSelectedProperty(p)}
             onViewDetails={(p) => setDetailProperty(p)}
-            searchQuery={filters.search}
+            searchQuery={filters.search || filters.area?.name || ""}
           />
         </div>
       </div>
