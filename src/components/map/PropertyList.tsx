@@ -1,4 +1,5 @@
 import { Property } from "../../types/property";
+import { formatDistance } from "@/lib/geo";
 
 type Props = {
   properties: Property[];
@@ -30,6 +31,9 @@ export default function PropertyList({ properties, onSelect }: Props) {
             <p className="text-gray-300 text-xs">{p.bhk} BHK · {p.property_type || "Apartment"}</p>
           ) : null}
           <p className="text-gray-400 text-xs mt-1 truncate">{p.address}</p>
+          {p.distance_m != null && (
+            <p className="text-blue-300 text-xs mt-1">📍 {formatDistance(p.distance_m)} away</p>
+          )}
           {p.is_verified && (
             <span className="text-xs text-blue-400 mt-1 inline-block">✓ Verified</span>
           )}
