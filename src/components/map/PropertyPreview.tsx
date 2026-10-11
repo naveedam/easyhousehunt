@@ -1,4 +1,6 @@
 import { Property } from "../../types/property";
+import PhotoGallery from "./PhotoGallery";
+import { httpPhotos } from "@/lib/photos";
 
 export default function PropertyPreview({
   property,
@@ -11,7 +13,7 @@ export default function PropertyPreview({
   onViewDetails: () => void;
   bottom?: string;
 }) {
-  const photo = property.media_urls?.[0];
+  const photos = httpPhotos(property.media_urls);
   const sizeLabel =
     property.property_type === "PG" && property.occupancy
       ? `${property.occupancy} Occupancy`
@@ -33,36 +35,27 @@ export default function PropertyPreview({
         ✕
       </button>
 
-      <div className="flex gap-3 p-3">
-        {photo ? (
-          <img src={photo} alt={property.title} loading="lazy"
-               className="h-24 w-24 flex-shrink-0 rounded-lg object-cover" />
-        ) : (
-          <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-gray-700 text-xs text-gray-500">
-            No photo
-          </div>
-        )}
+      {photos.length > 0 && (
+        <PhotoGallery key={property.id} urls={photos} alt={property.title || "Listing"} heightClass="h-32" roundedClass="" />
+      )}
 
-        <div className="min-w-0 flex-1 pr-5">
-          <h3 className="truncate text-sm font-semibold">{property.title || "Untitled"}</h3>
-          <p className="text-lg font-bold text-green-400">
-            {property.rent ? `₹${property.rent.toLocaleString("en-IN")}` : "Price on request"}
-            {property.rent ? <span className="text-xs font-normal text-gray-400">/mo</span> : null}
-          </p>
-          <p className="truncate text-xs text-gray-300">
-            {[property.property_type, sizeLabel, property.furnishing].filter(Boolean).join(" · ")}
-          </p>
-          {property.address && (
-            <p className="truncate text-xs text-gray-400">📍 {property.address}</p>
-          )}
-        </div>
+      <div className={`px-3 pt-3 ${photos.length === 0 ? "pr-9" : ""}`}>
+        <h3 className="truncate text-sm font-semibold">{property.title || "Untitled"}</h3>
+        <p className="text-lg font-bold text-green-400">
+          {property.rent ? `₹${property.rent.toLocaleString("en-IN")}` : "Price on request"}
+          {property.rent ? <span className="text-xs font-normal text-gray-400">/mo</span> : null}
+        </p>
+        <p className="truncate text-xs text-gray-300">
+          {[property.property_type, sizeLabel, property.furnishing].filter(Boolean).join(" · ")}
+        </p>
+        {property.address && <p className="truncate text-xs text-gray-400">📍 {property.address}</p>}
       </div>
 
       {property.description && (
-        <p className="line-clamp-2 px-3 pb-2 text-xs text-gray-400">{property.description}</p>
+        <p className="line-clamp-2 px-3 pt-2 text-xs text-gray-400">{property.description}</p>
       )}
 
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 pt-2">
         <button
           onClick={onViewDetails}
           className="w-full rounded-lg bg-orange-500 py-2 text-sm font-semibold hover:bg-orange-600"

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Property } from "../../types/property";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import PhotoGallery from "./PhotoGallery";
+import { httpPhotos } from "@/lib/photos";
 
 export default function PropertyDetail({
   property,
@@ -39,18 +41,15 @@ export default function PropertyDetail({
           ✕
         </button>
 
-        {/* Image */}
-        {property.media_urls && property.media_urls.length > 0 ? (
-          <img
-            src={property.media_urls[0]}
-            alt={property.title}
-            className="w-full h-48 object-cover rounded-lg mb-4"
+        {/* Photos */}
+        <div className="mb-4">
+          <PhotoGallery
+            key={property.id}
+            urls={httpPhotos(property.media_urls)}
+            alt={property.title || "Listing"}
+            heightClass="h-56"
           />
-        ) : (
-          <div className="w-full h-48 bg-gray-700 rounded-lg mb-4 flex items-center justify-center text-gray-500">
-            No photo
-          </div>
-        )}
+        </div>
 
         {/* Title & Price */}
         <h2 className="text-xl font-bold">{property.title || "Untitled"}</h2>

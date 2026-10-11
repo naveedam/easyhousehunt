@@ -199,7 +199,7 @@ export default function MapView({
       el.addEventListener("click", (e) => {
         hoverPopupRef.current?.remove();
         e.stopPropagation(); // don't let the map's click handler close the card
-        map.flyTo({ center: [p.longitude!, p.latitude!], zoom: Math.max(map.getZoom(), 13), speed: 1.2, offset: [0, -90] });
+        map.flyTo({ center: [p.longitude!, p.latitude!], zoom: Math.max(map.getZoom(), 13), speed: 1.2, offset: [0, -150] });
         onMarkerClick?.(p);
         if (onViewDetails) setPreview(p);
       });
@@ -218,7 +218,7 @@ export default function MapView({
       center: [selectedProperty.longitude, selectedProperty.latitude],
       zoom: Math.max(map.getZoom(), 13),
       speed: 1.2,
-      offset: [0, -90],
+      offset: [0, -150],
     });
   }, [selectedProperty, mapLoaded]);
 
