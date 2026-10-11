@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { MAX_PHOTOS, uploadListingPhotos } from "@/lib/photos";
 
 interface EditProps {
   listing: any;
@@ -10,25 +12,66 @@ interface EditProps {
 
 const inp = "w-full bg-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500";
 
+const isHttpUrl = (u: unknown): u is string => typeof u === "string" && /^https?:\/\//i.test(u);
+const norm = (v: any) => (v === "" || v === undefined ? null : v);
+const same = (a: any, b: any) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+const toNum = (s: string) => {
+  const n = parseFloat(s);
+  return Number.isNaN(n) ? null : n;
+};
+
 export default function EditListingModal({ listing, onClose, onSaved, adminMode }: EditProps) {
+  const { user } = useAuth();
+  const [orig, setOrig] = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({
-    title: listing.title || "",
-    rent: String(listing.rent || ""),
-    deposit: String(listing.deposit || ""),
-    bhk: String(listing.bhk || "2"),
-    area_sqft: String(listing.area_sqft || ""),
-    furnishing: listing.furnishing || "Semi",
-    description: listing.description || "",
-    address: listing.address || "",
-    latitude: String(listing.latitude || ""),
-    longitude: String(listing.longitude || ""),
+    title: "", rent: "", deposit: "", bhk: "", area_sqft: "",
+    furnishing: "", description: "", address: "", latitude: "", longitude: "",
   });
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [geoStatus, setGeoStatus] = useState("");
   const [geoFailed, setGeoFailed] = useState(false);
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const newPreviews = useMemo(() => newFiles.map((f) => URL.createObjectURL(f)), [newFiles]);
+  useEffect(() => () => newPreviews.forEach((u) => URL.revokeObjectURL(u)), [newPreviews]);
+
+  // Always load the full row, so a caller passing partial data can never cause fields to be blanked on save
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error: err } = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", listing.id)
+        .single();
+      if (cancelled) return;
+      if (err || !data) {
+        setLoadError(err?.message || "Could not load this listing.");
+        return;
+      }
+      setOrig(data);
+      setForm({
+        title: data.title ?? "",
+        rent: data.rent != null ? String(data.rent) : "",
+        deposit: data.deposit != null ? String(data.deposit) : "",
+        bhk: data.bhk != null ? String(data.bhk) : "",
+        area_sqft: data.area_sqft != null ? String(data.area_sqft) : "",
+        furnishing: data.furnishing ?? "",
+        description: data.description ?? "",
+        address: data.address ?? "",
+        latitude: data.latitude != null ? String(data.latitude) : "",
+        longitude: data.longitude != null ? String(data.longitude) : "",
+      });
+      setPhotoUrls(((data.media_urls as unknown[]) || []).filter(isHttpUrl));
+    })();
+    return () => { cancelled = true; };
+  }, [listing.id]);
+
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const totalPhotos = photoUrls.length + newFiles.length;
 
   const handleGeocode = async () => {
     if (!form.address) return;
@@ -49,31 +92,76 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
         setGeoFailed(true);
       }
     } catch {
+      setGeoStatus("");
       setGeoFailed(true);
     }
   };
 
+  const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(
+      (f) => f.type.startsWith("image/") && f.size < 25 * 1024 * 1024
+    );
+    setNewFiles((prev) => [...prev, ...files].slice(0, Math.max(0, MAX_PHOTOS - photoUrls.length)));
+    e.target.value = "";
+  };
+
   const handleSave = async () => {
-    setSaving(true);
+    if (!orig) return;
     setError("");
-    const { error: err } = await supabase
-      .from("properties")
-      .update({
-        title: form.title,
+
+    if (!adminMode && totalPhotos === 0) {
+      setError("Please add at least one photo. Listings without photos can't be approved.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let urls = photoUrls;
+      if (newFiles.length > 0) {
+        const uploaded = await uploadListingPhotos(user?.id || orig.landlord_id, newFiles);
+        urls = [...photoUrls, ...uploaded];
+      }
+
+      const next: Record<string, any> = {
+        title: form.title.trim(),
         rent: parseInt(form.rent) || 0,
         deposit: parseInt(form.deposit) || null,
-        bhk: parseInt(form.bhk),
+        bhk: form.bhk === "" ? null : parseInt(form.bhk),
         area_sqft: parseInt(form.area_sqft) || null,
-        furnishing: form.furnishing,
-        description: form.description,
-        address: form.address,
-        latitude: parseFloat(form.latitude) || null,
-        longitude: parseFloat(form.longitude) || null,
-      })
-      .eq("id", listing.id);
-    setSaving(false);
-    if (err) { setError(err.message); return; }
-    onSaved();
+        furnishing: form.furnishing || null,
+        description: form.description.trim() || null,
+        address: form.address.trim(),
+        latitude: toNum(form.latitude),
+        longitude: toNum(form.longitude),
+        media_urls: urls,
+      };
+
+      // only send what actually changed
+      const changed: Record<string, any> = {};
+      for (const k of Object.keys(next)) {
+        const before = k === "media_urls" ? orig.media_urls || [] : orig[k];
+        if (!same(next[k], before)) changed[k] = next[k];
+      }
+
+      if (Object.keys(changed).length === 0) {
+        onSaved();
+        return;
+      }
+
+      const { data, error: err } = await supabase
+        .from("properties")
+        .update(changed)
+        .eq("id", orig.id)
+        .select("id");
+
+      if (err) throw err;
+      if (!data || data.length === 0) throw new Error("You don't have permission to change this listing.");
+      onSaved();
+    } catch (e: any) {
+      setError(e?.message || "Could not save changes.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -90,109 +178,147 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {loadError && <p className="text-red-400 text-sm">{loadError}</p>}
+          {!orig && !loadError && <p className="text-gray-400 text-sm">Loading...</p>}
 
-          {/* Title */}
-          <div>
-            <label className="text-xs text-gray-400">Title</label>
-            <input className={inp + " mt-1"} value={form.title} onChange={e => set("title", e.target.value)} />
-          </div>
-
-          {/* Rent + Deposit */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-400">Rent (₹/mo)</label>
-              <input type="number" className={inp + " mt-1"} value={form.rent} onChange={e => set("rent", e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400">Deposit (₹)</label>
-              <input type="number" className={inp + " mt-1"} value={form.deposit} onChange={e => set("deposit", e.target.value)} />
-            </div>
-          </div>
-
-          {/* BHK + Area */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-400">BHK</label>
-              <select className={inp + " mt-1"} value={form.bhk} onChange={e => set("bhk", e.target.value)}>
-                {["1","2","3","4","5"].map(n => <option key={n}>{n}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-400">Area (sqft)</label>
-              <input type="number" className={inp + " mt-1"} value={form.area_sqft} onChange={e => set("area_sqft", e.target.value)} />
-            </div>
-          </div>
-
-          {/* Furnishing */}
-          <div>
-            <label className="text-xs text-gray-400">Furnishing</label>
-            <div className="flex gap-2 mt-1">
-              {["Unfurnished","Semi","Fully Furnished"].map(f => (
-                <button key={f} onClick={() => set("furnishing", f)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border ${form.furnishing === f ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
-                  {f === "Fully Furnished" ? "Full" : f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-xs text-gray-400">Description</label>
-            <textarea className={inp + " mt-1 h-20 resize-none"} value={form.description} onChange={e => set("description", e.target.value)} />
-          </div>
-
-          {/* Address + Pin */}
-          <div>
-            <label className="text-xs text-gray-400">Address</label>
-            <div className="flex gap-2 mt-1">
-              <input className={inp + " flex-1"} value={form.address} onChange={e => { set("address", e.target.value); setGeoFailed(false); setGeoStatus(""); }} />
-              <button onClick={handleGeocode} className="bg-orange-500 hover:bg-orange-600 px-3 rounded-lg text-xs font-medium whitespace-nowrap">
-                Pin 📍
-              </button>
-            </div>
-            {geoStatus && <p className="text-green-400 text-xs mt-1">{geoStatus}</p>}
-          </div>
-
-          {/* Location — always shown in admin mode or if no coords */}
-          {(adminMode || !listing.latitude || geoFailed) && (
-            <div className={`rounded-lg p-3 space-y-2 ${!listing.latitude ? "bg-red-900/30 border border-red-700" : "bg-gray-800"}`}>
-              {!listing.latitude && (
-                <p className="text-red-400 text-xs font-semibold">⚠️ No location set — listing won't show on map</p>
-              )}
-              <label className="text-xs text-gray-400 block">Coordinates</label>
-              <div className="flex gap-2">
-                <input
-                  className={inp + " flex-1"}
-                  placeholder="Latitude e.g. 13.0358"
-                  value={form.latitude}
-                  onChange={e => set("latitude", e.target.value)}
-                />
-                <input
-                  className={inp + " flex-1"}
-                  placeholder="Longitude e.g. 77.5970"
-                  value={form.longitude}
-                  onChange={e => set("longitude", e.target.value)}
-                />
+          {orig && (
+            <>
+              {/* Title */}
+              <div>
+                <label className="text-xs text-gray-400">Title</label>
+                <input className={inp + " mt-1"} value={form.title} onChange={(e) => set("title", e.target.value)} />
               </div>
-              <button
-                onClick={() => {
-                  navigator.geolocation?.getCurrentPosition(
-                    pos => {
-                      set("latitude", String(pos.coords.latitude));
-                      set("longitude", String(pos.coords.longitude));
-                      setGeoStatus("✓ Using current location");
-                    }
-                  );
-                }}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-xs py-2 rounded-lg"
-              >
-                📱 Use Current Location
-              </button>
-              <p className="text-xs text-gray-500">
-                Or open <a href={`https://maps.google.com/maps?q=${encodeURIComponent(form.address)}`} target="_blank" rel="noreferrer" className="text-orange-400 underline">Google Maps</a> → search address → right click → "What's here?" → copy coords
-              </p>
-            </div>
+
+              {/* Rent + Deposit */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400">Rent (₹/mo)</label>
+                  <input type="number" className={inp + " mt-1"} value={form.rent} onChange={(e) => set("rent", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400">Deposit (₹)</label>
+                  <input type="number" className={inp + " mt-1"} value={form.deposit} onChange={(e) => set("deposit", e.target.value)} />
+                </div>
+              </div>
+
+              {/* BHK + Area */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400">BHK</label>
+                  <select className={inp + " mt-1"} value={form.bhk} onChange={(e) => set("bhk", e.target.value)}>
+                    <option value="">—</option>
+                    {["1", "2", "3", "4", "5"].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400">Area (sqft)</label>
+                  <input type="number" className={inp + " mt-1"} value={form.area_sqft} onChange={(e) => set("area_sqft", e.target.value)} />
+                </div>
+              </div>
+
+              {/* Furnishing */}
+              <div>
+                <label className="text-xs text-gray-400">Furnishing</label>
+                <div className="flex gap-2 mt-1">
+                  {["Unfurnished", "Semi", "Fully Furnished"].map((f) => (
+                    <button key={f} onClick={() => set("furnishing", f)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium border ${form.furnishing === f ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
+                      {f === "Fully Furnished" ? "Full" : f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs text-gray-400">Description</label>
+                <textarea className={inp + " mt-1 h-20 resize-none"} value={form.description} onChange={(e) => set("description", e.target.value)} />
+              </div>
+
+              {/* Photos */}
+              <div>
+                <label className="text-xs text-gray-400">Photos ({totalPhotos}/{MAX_PHOTOS})</label>
+                <div className="flex gap-2 mt-1 overflow-x-auto pb-1">
+                  {photoUrls.map((u) => (
+                    <div key={u} className="relative flex-shrink-0">
+                      <img src={u} alt="" loading="lazy" className="h-20 w-28 object-cover rounded-lg" />
+                      <button
+                        onClick={() => setPhotoUrls((prev) => prev.filter((x) => x !== u))}
+                        className="absolute top-1 right-1 bg-black/70 hover:bg-black rounded-full w-5 h-5 text-xs leading-5"
+                        aria-label="Remove photo"
+                      >✕</button>
+                    </div>
+                  ))}
+                  {newPreviews.map((u, i) => (
+                    <div key={u} className="relative flex-shrink-0">
+                      <img src={u} alt="" className="h-20 w-28 object-cover rounded-lg ring-2 ring-orange-500" />
+                      <button
+                        onClick={() => setNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="absolute top-1 right-1 bg-black/70 hover:bg-black rounded-full w-5 h-5 text-xs leading-5"
+                        aria-label="Remove photo"
+                      >✕</button>
+                    </div>
+                  ))}
+                  {totalPhotos < MAX_PHOTOS && (
+                    <label className="flex-shrink-0 h-20 w-28 border border-dashed border-gray-600 rounded-lg flex items-center justify-center text-xs text-gray-400 cursor-pointer hover:border-orange-500">
+                      + Add photos
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleAddFiles} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Address + Pin */}
+              <div>
+                <label className="text-xs text-gray-400">Address</label>
+                <div className="flex gap-2 mt-1">
+                  <input className={inp + " flex-1"} value={form.address}
+                    onChange={(e) => { set("address", e.target.value); setGeoFailed(false); setGeoStatus(""); }} />
+                  <button onClick={handleGeocode} className="bg-orange-500 hover:bg-orange-600 px-3 rounded-lg text-xs font-medium whitespace-nowrap">
+                    Pin 📍
+                  </button>
+                </div>
+                {geoStatus && <p className="text-green-400 text-xs mt-1">{geoStatus}</p>}
+              </div>
+
+              {/* Location — always shown in admin mode or if no coords */}
+              {(adminMode || !orig.latitude || geoFailed) && (
+                <div className={`rounded-lg p-3 space-y-2 ${!orig.latitude ? "bg-red-900/30 border border-red-700" : "bg-gray-800"}`}>
+                  {!orig.latitude && (
+                    <p className="text-red-400 text-xs font-semibold">⚠️ No location set — listing won't show on map</p>
+                  )}
+                  <label className="text-xs text-gray-400 block">Coordinates</label>
+                  <div className="flex gap-2">
+                    <input className={inp + " flex-1"} placeholder="Latitude e.g. 13.0358"
+                      value={form.latitude} onChange={(e) => set("latitude", e.target.value)} />
+                    <input className={inp + " flex-1"} placeholder="Longitude e.g. 77.5970"
+                      value={form.longitude} onChange={(e) => set("longitude", e.target.value)} />
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.geolocation?.getCurrentPosition((pos) => {
+                        set("latitude", String(pos.coords.latitude));
+                        set("longitude", String(pos.coords.longitude));
+                        setGeoStatus("✓ Using current location");
+                      });
+                    }}
+                    className="w-full bg-gray-700 hover:bg-gray-600 text-xs py-2 rounded-lg"
+                  >
+                    📱 Use Current Location
+                  </button>
+                  <p className="text-xs text-gray-500">
+                    Or open <a href={`https://maps.google.com/maps?q=${encodeURIComponent(form.address)}`} target="_blank" rel="noreferrer" className="text-orange-400 underline">Google Maps</a> → search address → right click → "What's here?" → copy coords
+                  </p>
+                </div>
+              )}
+
+              {!adminMode && (
+                <p className="text-xs text-gray-500">
+                  Changing the price, address, photos or description sends an approved listing back for review.
+                  It stays off the map until it is approved again.
+                </p>
+              )}
+            </>
           )}
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -201,7 +327,7 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-gray-700 flex justify-between">
           <button onClick={onClose} className="text-gray-400 hover:text-white px-4 py-2 text-sm">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={handleSave} disabled={saving || !orig}
             className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 px-6 py-2 rounded-lg font-semibold text-sm">
             {saving ? "Saving..." : "Save Changes"}
           </button>
