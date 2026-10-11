@@ -25,6 +25,13 @@ export default function AuthModal({
           Continue with Google
         </button>
 
+        <p className="text-xs text-gray-500 mb-3">
+          By continuing, you agree to our{" "}
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-orange-600 underline">Terms of Use</a>{" "}
+          and{" "}
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-orange-600 underline">Privacy Policy</a>.
+        </p>
+
         <button
           onClick={onClose}
           className="text-gray-500 text-sm"

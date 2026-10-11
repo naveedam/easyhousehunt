@@ -198,6 +198,11 @@ function App() {
               className="bg-orange-500 hover:bg-orange-600 w-full py-3 rounded font-semibold">
               + List Your Property
             </button>
+            <div className="flex justify-center gap-3 pt-1 text-[11px] text-gray-500">
+              <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300">Privacy</a>
+              <span>·</span>
+              <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300">Terms</a>
+            </div>
           </div>
           <SearchFilters onChange={setFilters} />
           {loading ? (
