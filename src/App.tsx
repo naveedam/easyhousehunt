@@ -260,9 +260,9 @@ function App() {
         onClose={() => setAuthModalOpen(false)}
       />
 
-      {ownerDashOpen && <OwnerDashboard onClose={() => setOwnerDashOpen(false)} />}
+      {ownerDashOpen && <OwnerDashboard onClose={() => { setOwnerDashOpen(false); fetchProperties(); }} />}
       {tenantDashOpen && <TenantDashboard onClose={() => setTenantDashOpen(false)} />}
-      {adminDashOpen && <AdminDashboard onClose={() => setAdminDashOpen(false)} />}
+      {adminDashOpen && <AdminDashboard onClose={() => { setAdminDashOpen(false); fetchProperties(); }} />}
       {rentRightOpen && <RentRight onClose={() => setRentRightOpen(false)} />}
     </>
   );
