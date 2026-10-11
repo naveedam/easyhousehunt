@@ -10,7 +10,9 @@ interface Listing {
   bhk: number;
   address: string;
   created_at: string;
-  is_active: boolean;
+  is_active?: boolean;
+  status?: string;
+  rejection_reason?: string | null;
   enquiry_count?: number;
 }
 
@@ -31,7 +33,7 @@ export default function OwnerDashboard({ onClose }: { onClose: () => void }) {
 
     const { data: props } = await supabase
       .from("properties")
-      .select("id, title, rent, bhk, address, created_at")
+      .select("id, title, rent, bhk, address, created_at, status, rejection_reason")
       .eq("market", "india")
       .eq("landlord_id", user.id)
       .order("created_at", { ascending: false });
@@ -108,8 +110,15 @@ export default function OwnerDashboard({ onClose }: { onClose: () => void }) {
                   <div key={l.id} className="bg-gray-800 rounded-xl p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <p className="font-semibold">{l.title}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">{l.title}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${l.status === "approved" ? "bg-green-900 text-green-400" : l.status === "rejected" ? "bg-red-900 text-red-400" : "bg-yellow-900 text-yellow-300"}`}>
+                            {l.status === "approved" ? "Live" : l.status === "rejected" ? "Not approved" : "Pending review"}
+                          </span>
+                        </div>
                         <p className="text-green-400 font-bold">₹{l.rent?.toLocaleString()}/mo</p>
+                        {l.status === "pending" && <p className="text-yellow-400 text-xs mt-1">Waiting for review. Not visible on the map yet.</p>}
+                        {l.status === "rejected" && <p className="text-red-400 text-xs mt-1">Not approved{l.rejection_reason ? ": " + l.rejection_reason : ""}. Update the details and save to resubmit.</p>}
                         <p className="text-gray-400 text-xs mt-1">{l.bhk} BHK · {l.address}</p>
                         <p className="text-gray-500 text-xs mt-1">
                           Listed {new Date(l.created_at).toLocaleDateString()}
