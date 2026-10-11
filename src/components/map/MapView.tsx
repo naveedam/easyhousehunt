@@ -3,6 +3,8 @@ import maplibregl, { Map, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Property } from "../../types/property";
 import PropertyPreview from "./PropertyPreview";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { NEAR_RADIUS_M, distanceMeters, formatDistance } from "@/lib/geo";
 
 function buildHoverContent(p: Property): HTMLElement {
   const wrap = document.createElement("div");
@@ -42,26 +44,97 @@ function buildHoverContent(p: Property): HTMLElement {
   return wrap;
 }
 
+function makeUserDot(): HTMLElement {
+  const el = document.createElement("div");
+  el.style.width = "16px";
+  el.style.height = "16px";
+  el.style.borderRadius = "50%";
+  el.style.background = "#3b82f6";
+  el.style.border = "3px solid #ffffff";
+  el.style.boxShadow = "0 0 0 6px rgba(59,130,246,0.25)";
+  el.style.pointerEvents = "none";
+  return el;
+}
+
 export default function MapView({
   properties,
   selectedProperty,
   onMarkerClick,
   onViewDetails,
   previewBottom,
+  searchQuery,
 }: {
   properties: Property[];
   selectedProperty: Property | null;
   onMarkerClick?: (p: Property) => void;
   onViewDetails?: (p: Property) => void;
   previewBottom?: string;
+  searchQuery?: string;
 }) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const hoverPopupRef = useRef<maplibregl.Popup | null>(null);
+  const userMarkerRef = useRef<Marker | null>(null);
+  const autoLocatedRef = useRef(false);
+  const flashTimer = useRef<number | null>(null);
   const canHover = typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
+
+  const { location, locate, clear } = useUserLocation();
   const [mapLoaded, setMapLoaded] = useState(false);
   const [preview, setPreview] = useState<Property | null>(null);
+  const [nearMsg, setNearMsg] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const flash = (msg: string, ms = 0) => {
+    if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    setNearMsg(msg);
+    if (ms > 0) flashTimer.current = window.setTimeout(() => setNearMsg(null), ms);
+  };
+
+  const handleNearMe = async (silent = false) => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!silent) {
+      setLocating(true);
+      flash("Finding your location…");
+    }
+    const result = await locate();
+    setLocating(false);
+
+    if (!result.ok) {
+      if (silent) { setNearMsg(null); return; }
+      flash(
+        result.reason === "denied"
+          ? "Location is blocked for this site. Allow it in your browser settings, or search an area instead."
+          : result.reason === "outside"
+          ? "You seem to be outside Bengaluru. Search an area to explore listings."
+          : "Couldn't get your location. Please try again, or search an area.",
+        7000
+      );
+      return;
+    }
+
+    const loc = result.location;
+    const ranked = properties
+      .filter((p) => p.latitude != null && p.longitude != null)
+      .map((p) => ({ p, d: distanceMeters(loc, { lat: p.latitude!, lng: p.longitude! }) }))
+      .sort((a, b) => a.d - b.d);
+    const near = ranked.filter((r) => r.d <= NEAR_RADIUS_M);
+
+    if (near.length > 0) {
+      map.flyTo({ center: [loc.lng, loc.lat], zoom: 15, speed: 1.2 });
+      flash(`${near.length} listing${near.length === 1 ? "" : "s"} within 2 km. Closest first in the list.`);
+    } else if (ranked.length > 0) {
+      const b = new maplibregl.LngLatBounds([loc.lng, loc.lat], [loc.lng, loc.lat]);
+      ranked.slice(0, 5).forEach((r) => b.extend([r.p.longitude!, r.p.latitude!]));
+      map.fitBounds(b, { padding: 60, maxZoom: 14, duration: 800 });
+      flash(`Nothing within 2 km. The closest listing is ${formatDistance(ranked[0].d)} away.`);
+    } else {
+      map.flyTo({ center: [loc.lng, loc.lat], zoom: 14 });
+      flash("No listings match your filters yet.");
+    }
+  };
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -77,11 +150,14 @@ export default function MapView({
     return () => { map.remove(); mapRef.current = null; setMapLoaded(false); };
   }, []);
 
+  useEffect(() => () => { if (flashTimer.current) window.clearTimeout(flashTimer.current); }, []);
+
   // Hide the card if its property is filtered out of the list
   useEffect(() => {
     if (preview && !properties.some((p) => p.id === preview.id)) setPreview(null);
   }, [properties, preview]);
 
+  // Price pins
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
@@ -125,7 +201,7 @@ export default function MapView({
         e.stopPropagation(); // don't let the map's click handler close the card
         map.flyTo({ center: [p.longitude!, p.latitude!], zoom: Math.max(map.getZoom(), 13), speed: 1.2, offset: [0, -90] });
         onMarkerClick?.(p);
-        if (onViewDetails) setPreview(p); // preview only when parent supports "view details"
+        if (onViewDetails) setPreview(p);
       });
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([p.longitude, p.latitude])
@@ -134,6 +210,7 @@ export default function MapView({
     });
   }, [properties, selectedProperty, mapLoaded]);
 
+  // Fly to a listing picked from the sidebar
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded || !selectedProperty?.latitude || !selectedProperty?.longitude) return;
@@ -145,9 +222,88 @@ export default function MapView({
     });
   }, [selectedProperty, mapLoaded]);
 
+  // Searching moves the map to the matching listings (after the user pauses typing)
+  useEffect(() => {
+    const map = mapRef.current;
+    const q = (searchQuery || "").trim();
+    if (!map || !mapLoaded || q.length < 2) return;
+    const t = window.setTimeout(() => {
+      const pts = properties.filter((p) => p.latitude != null && p.longitude != null);
+      if (pts.length === 0) return;
+      if (pts.length === 1) {
+        map.flyTo({ center: [pts[0].longitude!, pts[0].latitude!], zoom: 16, speed: 1.2 });
+        return;
+      }
+      const b = new maplibregl.LngLatBounds();
+      pts.forEach((p) => b.extend([p.longitude!, p.latitude!]));
+      map.fitBounds(b, { padding: 70, maxZoom: 16, duration: 700 });
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [searchQuery, mapLoaded]);
+
+  // Blue dot for the user's position
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+    if (!location) {
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+      return;
+    }
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new maplibregl.Marker({ element: makeUserDot() })
+        .setLngLat([location.lng, location.lat])
+        .addTo(map);
+    } else {
+      userMarkerRef.current.setLngLat([location.lng, location.lat]);
+    }
+  }, [location, mapLoaded]);
+
+  // Auto-locate once per visit, only if the browser already granted location (no surprise prompt)
+  useEffect(() => {
+    if (!mapLoaded || properties.length === 0 || autoLocatedRef.current) return;
+    autoLocatedRef.current = true;
+    (async () => {
+      try {
+        const perm = await navigator.permissions?.query({ name: "geolocation" as PermissionName });
+        if (perm && perm.state === "granted") handleNearMe(true);
+      } catch {
+        // Permissions API unavailable: the Near me button still works
+      }
+    })();
+  }, [mapLoaded, properties.length]);
+
   return (
     <div className="relative h-full w-full">
       <div ref={mapContainer} className="h-full w-full" />
+
+      <div
+        className={`absolute right-4 z-20 flex max-w-[75%] items-end gap-2 ${
+          previewBottom ? "flex-col-reverse" : "top-4 flex-col"
+        }`}
+        style={previewBottom ? { bottom: previewBottom } : undefined}
+      >
+        <button
+          onClick={() => handleNearMe(false)}
+          disabled={locating}
+          className="rounded-full bg-gray-900/90 px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10 hover:bg-gray-800 disabled:opacity-60"
+        >
+          {locating ? "Locating…" : "📍 Near me"}
+        </button>
+        {nearMsg && (
+          <div className="flex items-start gap-2 rounded-xl bg-gray-900/95 px-3 py-2 text-xs text-white shadow-lg ring-1 ring-white/10">
+            <span>{nearMsg}</span>
+            <button
+              onClick={() => { clear(); setNearMsg(null); }}
+              aria-label="Dismiss"
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </div>
+
       {preview && onViewDetails && (
         <PropertyPreview
           property={preview}

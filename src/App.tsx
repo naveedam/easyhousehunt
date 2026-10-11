@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import MapView from "./components/map/MapView";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { distanceMeters } from "@/lib/geo";
 import PropertyList from "./components/map/PropertyList";
 import PropertyDetail from "./components/map/PropertyDetail";
 import AuthModal from "@/components/ui/AuthModal";
@@ -23,6 +25,7 @@ function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [detailProperty, setDetailProperty] = useState<Property | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const { location: userLoc } = useUserLocation();
   const [authIntent, setAuthIntent] = useState<"owner" | "tenant">("tenant");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [chatProperty, setChatProperty] = useState<Property | null>(null);
@@ -92,7 +95,7 @@ function App() {
   const isAdminByEmail = user?.email === adminEmail;
   const effectiveAdmin = isAdmin || isAdminByEmail;
 
-  const filteredProperties = properties.filter((p) => {
+  const filteredByFilters = properties.filter((p) => {
     if (filters.bhk.length > 0 && !filters.bhk.includes(p.bhk ?? 0)) return false;
     if (p.rent < filters.minRent || p.rent > filters.maxRent) return false;
     if (filters.furnishing.length > 0 && !filters.furnishing.includes(p.furnishing ?? "")) return false;
@@ -103,6 +106,18 @@ function App() {
     }
     return true;
   });
+
+  const filteredProperties = userLoc
+    ? filteredByFilters
+        .map((p) => ({
+          ...p,
+          distance_m:
+            p.latitude != null && p.longitude != null
+              ? distanceMeters(userLoc, { lat: p.latitude, lng: p.longitude })
+              : null,
+        }))
+        .sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity))
+    : filteredByFilters;
 
   const handleListProperty = () => {
     if (user) { setWizardOpen(true); }
@@ -221,6 +236,7 @@ function App() {
             selectedProperty={selectedProperty}
             onMarkerClick={(p) => setSelectedProperty(p)}
             onViewDetails={(p) => setDetailProperty(p)}
+            searchQuery={filters.search}
           />
         </div>
       </div>
