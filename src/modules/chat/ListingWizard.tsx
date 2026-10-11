@@ -1,4 +1,5 @@
 import { uploadListingPhotos } from "@/lib/photos";
+import LocationPicker from "@/components/map/LocationPicker";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,6 +37,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [findSignal, setFindSignal] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -45,6 +47,20 @@ export default function ListingWizard({ onClose, onSuccess }: {
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  // Title: the project for apartments; a name typed by the owner for PGs and houses
+  const listingTitle = () =>
+    (form.property_type === "Apartment"
+      ? (selectedProject === "Other" ? customProject : selectedProject)
+      : customProject
+    ).trim();
+
+  const chooseType = (t: string) => {
+    if (t === form.property_type) return;
+    set("property_type", t);
+    setSelectedProject("");
+    setCustomProject("");
+  };
 
   const toggleAmenity = (a: string) =>
     setAmenities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
@@ -109,7 +125,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
 
     const { error: err } = await supabase.from("properties").insert({
       market: "india",
-      title: form.property_type === "PG" ? customProject : (selectedProject === "Other" ? customProject : selectedProject),
+      title: listingTitle(),
       address: form.address,
       rent: parseInt(form.rent) || 0,
       deposit: parseInt(form.deposit) || null,
@@ -145,8 +161,21 @@ export default function ListingWizard({ onClose, onSuccess }: {
 
   const STEPS = ["Property", "Pricing", "Details", "Amenities", "Photos"];
 
+  const step1Missing = () => {
+    const missing: string[] = [];
+    if (form.property_type === "Apartment") {
+      if (!selectedProject) missing.push("choose the apartment");
+      else if (selectedProject === "Other" && !customProject.trim()) missing.push("enter the apartment name");
+    } else if (!customProject.trim()) {
+      missing.push(form.property_type === "PG" ? "enter the PG name" : "enter a listing title");
+    }
+    if (!form.address.trim()) missing.push("enter the address");
+    if (!form.latitude || !form.longitude) missing.push("drop the pin on the map");
+    return missing;
+  };
+
   const canNext = () => {
-    if (step === 1) return selectedProject && form.address && form.latitude;
+    if (step === 1) return step1Missing().length === 0;
     if (step === 2) return form.rent;
     return true;
   };
@@ -179,94 +208,81 @@ export default function ListingWizard({ onClose, onSuccess }: {
             <>
               <div>
                 <label className="text-sm text-gray-400">Property Type *</label>
-                <div className="flex gap-2 mt-1 mb-3">
+                <div className="flex gap-2 mt-1">
                   {["Apartment", "Independent House", "PG"].map(t => (
-                    <button key={t} onClick={() => set("property_type", t)}
+                    <button key={t} onClick={() => chooseType(t)}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.property_type === t ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
                       {t}
                     </button>
                   ))}
                 </div>
-              <label className="text-sm text-gray-400">{form.property_type === "PG" ? "PG Name *" : "Apartment / Project *"}</label>
-                {form.property_type === "PG" ? (
-                  <input className={inp + " mt-1"} placeholder="e.g. Sri Sai PG, Rajajinagar" value={customProject} onChange={e => setCustomProject(e.target.value)} />
-                ) : (
-                <select className={inp + " mt-1"} value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
-                  <option value="">Select...</option>
-                  {PROJECTS.map(p => <option key={p}>{p}</option>)}
-                </select>
-                )}
               </div>
-              {selectedProject === "Other" && (
+
+              {form.property_type === "Apartment" && (
+                <>
+                  <div>
+                    <label className="text-sm text-gray-400">Apartment / Project *</label>
+                    <select
+                      className={inp + " mt-1"}
+                      value={selectedProject}
+                      onChange={e => {
+                        const v = e.target.value;
+                        setSelectedProject(v);
+                        if (v && v !== "Other" && !form.latitude) setFindSignal(n => n + 1);
+                      }}
+                    >
+                      <option value="">Select...</option>
+                      {PROJECTS.map(p => <option key={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  {selectedProject === "Other" && (
+                    <div>
+                      <label className="text-sm text-gray-400">Apartment Name *</label>
+                      <input className={inp + " mt-1"} placeholder="Enter name" value={customProject} onChange={e => setCustomProject(e.target.value)} />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {form.property_type === "PG" && (
                 <div>
-                  <label className="text-sm text-gray-400">Apartment Name *</label>
-                  <input className={inp + " mt-1"} placeholder="Enter name" value={customProject} onChange={e => setCustomProject(e.target.value)} />
+                  <label className="text-sm text-gray-400">PG Name *</label>
+                  <input className={inp + " mt-1"} placeholder="e.g. Sri Sai PG, Rajajinagar" value={customProject} onChange={e => setCustomProject(e.target.value)} />
                 </div>
               )}
-              <div>
-                <label className="text-sm text-gray-400">Full Address *</label>
-                <div className="flex gap-2 mt-1">
-                  <input
-                    className={inp + " flex-1"}
-                    placeholder="e.g. Embassy Lake Terraces, Hebbal, Bangalore 560024"
-                    value={form.address}
-                    onChange={e => { set("address", e.target.value); setGeoFailed(false); setGeoStatus(""); }}
-                  />
-                  <button onClick={handleGeocode} className="bg-orange-500 hover:bg-orange-600 px-3 rounded-lg text-sm font-medium whitespace-nowrap">
-                    Pin 📍
-                  </button>
+
+              {form.property_type === "Independent House" && (
+                <div>
+                  <label className="text-sm text-gray-400">Listing Title *</label>
+                  <input className={inp + " mt-1"} placeholder="e.g. 3 BHK independent house, Hebbal" value={customProject} onChange={e => setCustomProject(e.target.value)} />
                 </div>
+              )}
 
-                {/* Success */}
-                {geoStatus && !geoFailed && (
-                  <p className="text-green-400 text-xs mt-1">{geoStatus}</p>
-                )}
-
-                {/* Failure tooltip */}
-                {geoFailed && (
-                  <div className="mt-2 bg-yellow-900/40 border border-yellow-600 rounded-lg p-3 text-xs text-yellow-300 space-y-2">
-                    <p className="font-semibold">📍 Could not auto-locate this address.</p>
-                    <p>Try these options:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-yellow-200">
-                      <li>Add pincode to the address (e.g. "Hebbal, Bangalore 560024")</li>
-                      <li>
-                        Open <a href="https://maps.google.com" target="_blank" rel="noreferrer" className="underline text-orange-400">Google Maps</a>, search your address, right-click → "What's here?" → copy the coordinates
-                      </li>
-                      <li>Or enable location below to use your current position</li>
-                    </ol>
-                    <button
-                      onClick={() => {
-                        if (!navigator.geolocation) return;
-                        setGeoStatus("Getting your location...");
-                        navigator.geolocation.getCurrentPosition(
-                          (pos) => {
-                            set("latitude", String(pos.coords.latitude));
-                            set("longitude", String(pos.coords.longitude));
-                            setGeoStatus(`✓ Using your current location`);
-                            setGeoFailed(false);
-                          },
-                          () => setGeoStatus("Location access denied.")
-                        );
-                      }}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium mt-1"
-                    >
-                      📱 Use My Current Location
-                    </button>
-                    <div className="flex gap-2 mt-1">
-                      <input
-                        className="flex-1 bg-gray-800 rounded px-2 py-1 text-white text-xs"
-                        placeholder="Paste latitude e.g. 13.0358"
-                        onChange={e => set("latitude", e.target.value)}
-                      />
-                      <input
-                        className="flex-1 bg-gray-800 rounded px-2 py-1 text-white text-xs"
-                        placeholder="Paste longitude e.g. 77.5970"
-                        onChange={e => set("longitude", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
+              <div>
+                <label className="text-sm text-gray-400">
+                  {form.property_type === "Apartment" ? "Tower / flat number and address *" : "Full address *"}
+                </label>
+                <input
+                  className={inp + " mt-1"}
+                  placeholder={form.property_type === "Apartment" ? "e.g. Tower B, Flat 302, Hebbal, Bangalore 560024" : "e.g. 12, 3rd Cross, Hebbal, Bangalore 560024"}
+                  value={form.address}
+                  onChange={e => set("address", e.target.value)}
+                  onBlur={() => { if (!form.latitude && form.address.trim().length >= 8) setFindSignal(n => n + 1); }}
+                />
               </div>
+
+              <LocationPicker
+                lat={form.latitude}
+                lng={form.longitude}
+                onChange={(la, ln) => { set("latitude", la.toFixed(6)); set("longitude", ln.toFixed(6)); }}
+                searchText={form.address}
+                hint={form.property_type === "Apartment" ? listingTitle() : ""}
+                findSignal={findSignal}
+              />
+
+              {!canNext() && (
+                <p className="text-xs text-yellow-300">To continue: {step1Missing().join(", ")}.</p>
+              )}
             </>
           )}
 
@@ -452,7 +468,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
               {/* Summary */}
               <div className="bg-gray-800 rounded-lg p-3 text-xs space-y-1">
                 <p className="text-gray-400 font-semibold mb-2">Listing Summary</p>
-                <p><span className="text-gray-400">Property:</span> <span className="text-white">{selectedProject === "Other" ? customProject : selectedProject}</span></p>
+                <p><span className="text-gray-400">Property:</span> <span className="text-white">{listingTitle()}</span></p>
                 <p><span className="text-gray-400">Rent:</span> <span className="text-green-400 font-bold">₹{parseInt(form.rent || "0").toLocaleString()}/mo</span></p>
                 {form.property_type === "PG" ? (
                   <>
