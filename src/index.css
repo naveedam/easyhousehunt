@@ -23,3 +23,5 @@ body {
 .hover-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: #111827; }
 .hover-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #111827; }
 .hover-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #111827; }
+
+.maplibregl-popup.hover-popup { z-index: 30; }

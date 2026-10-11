@@ -116,6 +116,11 @@ export default function MobileLayout({
                       className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
                       🛡️ RentRight
                     </button>
+                    <div className="border-t border-gray-700 px-4 py-2 flex gap-3 text-xs text-gray-400">
+                      <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-white">Privacy</a>
+                      <span>·</span>
+                      <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-white">Terms</a>
+                    </div>
                     <div className="border-t border-gray-700">
                       <button onClick={() => { onSignOut(); setMobileMenuOpen(false); }}
                         className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2">
