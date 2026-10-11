@@ -51,3 +51,9 @@ export async function uploadListingPhotos(userId: string, files: File[]): Promis
   }
   return urls;
 }
+
+// Owners control media_urls, so only ever render http(s) URLs
+export const httpPhotos = (urls: unknown): string[] =>
+  Array.isArray(urls)
+    ? urls.filter((u): u is string => typeof u === "string" && /^https?:\/\//i.test(u))
+    : [];
