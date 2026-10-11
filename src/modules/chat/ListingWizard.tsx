@@ -74,7 +74,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const valid = files.filter(f => f.size < 10 * 1024 * 1024); // 10MB limit
+    const valid = files.filter(f => f.type.startsWith("image/") && f.size < 25 * 1024 * 1024); // compressed before upload
     setPhotos(prev => [...prev, ...valid].slice(0, 6)); // max 6 photos
   };
 
@@ -82,22 +82,54 @@ export default function ListingWizard({ onClose, onSuccess }: {
     setPhotos(prev => prev.filter((_, idx) => idx !== i));
   };
 
+  // Shrink photos in the browser: max 1600px, re-encoded as JPEG
+  const compressImage = async (file: File, maxDim = 1600, quality = 0.82): Promise<Blob> => {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not available");
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Compression failed"))),
+        "image/jpeg",
+        quality
+      )
+    );
+  };
+
   const uploadPhotos = async (): Promise<string[]> => {
     if (photos.length === 0) return [];
     setUploading(true);
     const urls: string[] = [];
+    const failed: string[] = [];
     for (const photo of photos) {
-      const ext = photo.name.split(".").pop();
-      const path = `${user!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage
-        .from("property-photos")
-        .upload(path, photo, { contentType: photo.type });
-      if (!error) {
-        const { data } = supabase.storage.from("property-photos").getPublicUrl(path);
+      try {
+        const blob = await compressImage(photo);
+        const path = `${user!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+        const { error } = await supabase.storage
+          .from("property-media")
+          .upload(path, blob, { contentType: "image/jpeg" });
+        if (error) throw error;
+        const { data } = supabase.storage.from("property-media").getPublicUrl(path);
         urls.push(data.publicUrl);
+      } catch (e) {
+        console.error("Photo upload failed:", photo.name, e);
+        failed.push(photo.name);
       }
     }
     setUploading(false);
+    if (failed.length > 0) {
+      throw new Error(
+        `Could not upload ${failed.length} photo(s): ${failed.join(", ")}. Please use JPG, PNG or WebP photos and try again.`
+      );
+    }
     return urls;
   };
 
@@ -106,7 +138,14 @@ export default function ListingWizard({ onClose, onSuccess }: {
     setSaving(true);
     setError("");
 
-    const uploadedUrls = await uploadPhotos();
+    let uploadedUrls: string[] = [];
+    try {
+      uploadedUrls = await uploadPhotos();
+    } catch (e: any) {
+      setSaving(false);
+      setError(e?.message || "Photo upload failed. Please try again.");
+      return;
+    }
 
     const { error: err } = await supabase.from("properties").insert({
       market: "india",
