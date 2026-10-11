@@ -1,3 +1,4 @@
+import { uploadListingPhotos } from "@/lib/photos";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -82,55 +83,14 @@ export default function ListingWizard({ onClose, onSuccess }: {
     setPhotos(prev => prev.filter((_, idx) => idx !== i));
   };
 
-  // Shrink photos in the browser: max 1600px, re-encoded as JPEG
-  const compressImage = async (file: File, maxDim = 1600, quality = 0.82): Promise<Blob> => {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
-    const w = Math.round(bitmap.width * scale);
-    const h = Math.round(bitmap.height * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas not available");
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("Compression failed"))),
-        "image/jpeg",
-        quality
-      )
-    );
-  };
-
   const uploadPhotos = async (): Promise<string[]> => {
     if (photos.length === 0) return [];
     setUploading(true);
-    const urls: string[] = [];
-    const failed: string[] = [];
-    for (const photo of photos) {
-      try {
-        const blob = await compressImage(photo);
-        const path = `${user!.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
-        const { error } = await supabase.storage
-          .from("property-media")
-          .upload(path, blob, { contentType: "image/jpeg" });
-        if (error) throw error;
-        const { data } = supabase.storage.from("property-media").getPublicUrl(path);
-        urls.push(data.publicUrl);
-      } catch (e) {
-        console.error("Photo upload failed:", photo.name, e);
-        failed.push(photo.name);
-      }
+    try {
+      return await uploadListingPhotos(user!.id, photos);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
-    if (failed.length > 0) {
-      throw new Error(
-        `Could not upload ${failed.length} photo(s): ${failed.join(", ")}. Please use JPG, PNG or WebP photos and try again.`
-      );
-    }
-    return urls;
   };
 
   const saveProperty = async () => {
@@ -529,9 +489,9 @@ export default function ListingWizard({ onClose, onSuccess }: {
               Next →
             </button>
           ) : (
-            <button onClick={handleSubmit} disabled={saving || uploading}
+            <button onClick={handleSubmit} disabled={saving || uploading || photos.length === 0}
               className="bg-green-500 hover:bg-green-600 disabled:opacity-40 px-6 py-2 rounded-lg font-semibold">
-              {uploading ? "Uploading..." : saving ? "Publishing..." : "🏠 Publish"}
+              {uploading ? "Uploading..." : saving ? "Submitting..." : photos.length === 0 ? "Add a photo to continue" : "🏠 Submit for review"}
             </button>
           )}
         </div>
