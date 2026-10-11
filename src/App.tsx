@@ -43,6 +43,7 @@ function App() {
         .from("properties")
         .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy")
         .eq("market", "india")
+        .eq("status", "approved")
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .limit(100);
@@ -249,7 +250,7 @@ function App() {
           onSuccess={() => {
             setWizardOpen(false);
             fetchProperties();
-            alert("Your property is now live on the map!");
+            alert("Thanks! Your listing was submitted for review. It will appear on the map once approved. You can track its status under My Listings.");
           }}
         />
       )}
