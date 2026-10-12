@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Property } from "../../types/property";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import PhotoGallery from "./PhotoGallery";
 import { httpPhotos } from "@/lib/photos";
+import { addRecent } from "@/lib/recentlyViewed";
 
 export default function PropertyDetail({
   property,
@@ -16,6 +17,8 @@ export default function PropertyDetail({
 }) {
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => { addRecent(property.id); }, [property.id]);
 
   const toggleSave = async () => {
     if (!user) return;
