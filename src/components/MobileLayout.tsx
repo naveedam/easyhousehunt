@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import MapView from "./map/MapView";
+import UnreadBadge from "@/components/UnreadBadge";
 import PropertyList from "./map/PropertyList";
 import PropertyDetail from "./map/PropertyDetail";
 import SearchFilters, { Filters } from "./SearchFilters";
@@ -100,11 +101,11 @@ export default function MobileLayout({
                     </div>
                     <button onClick={() => { onOpenInbox(); setMobileMenuOpen(false); }}
                       className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
-                      💬 Messages
+                      💬 Messages <UnreadBadge />
                     </button>
                     <button onClick={() => { onOwnerDash(); setMobileMenuOpen(false); }}
                       className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
-                      🏠 My Listings
+                      📋 My Dashboard
                     </button>
                     {isAdmin && (
                       <button onClick={() => { onAdminDash(); setMobileMenuOpen(false); }}
