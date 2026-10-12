@@ -4,6 +4,9 @@ import ChatModal from "@/modules/chat/ChatModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessageVersion, useUnread } from "@/lib/messageStore";
+import { selectProperty } from "@/lib/searchStore";
+import { useSavedIds } from "@/lib/saved";
+import SaveButton from "@/components/SaveButton";
 
 type Tab = "messages" | "listings" | "saved";
 
@@ -34,6 +37,7 @@ export default function OwnerDashboard({
   const { user } = useAuth();
   const unread = useUnread();
   const version = useMessageVersion();
+  const savedIds = useSavedIds();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [rows, setRows] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
@@ -66,14 +70,52 @@ export default function OwnerDashboard({
     setListings((data as any[]) || []);
   };
 
+  // Saved items: first the ids, then the listings that are still live (taken-down ones just drop out)
   const loadSaved = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data: rows } = await supabase
       .from("saved_properties")
-      .select("*, properties(id, title, rent, bhk, address)")
+      .select("property_id, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    setSaved((data as any[]) || []);
+    const ids = (rows || []).map((r: any) => String(r.property_id)).filter(Boolean);
+    if (ids.length === 0) {
+      setSaved([]);
+      return;
+    }
+    const { data: props } = await supabase
+      .from("properties")
+      .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy, is_sample")
+      .in("id", ids);
+    const byId = new Map((props || []).map((p: any) => [String(p.id), p]));
+    setSaved(
+      ids
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .map((p: any) => ({
+          id: String(p.id),
+          properties: {
+            id: String(p.id),
+            title: p.title ?? "Untitled",
+            rent: p.rent ?? 0,
+            bhk: p.bhk ?? null,
+            address: p.address ?? "",
+            latitude: p.latitude,
+            longitude: p.longitude,
+            deposit: p.deposit ?? null,
+            furnishing: p.furnishing ?? null,
+            area_sqft: p.area_sqft ?? null,
+            description: p.description ?? null,
+            amenities: p.amenities ?? [],
+            media_urls: p.media_urls ?? [],
+            image_url: p.media_urls?.[0] ?? null,
+            landlord_id: p.landlord_id ?? null,
+            property_type: p.property_type ?? "Apartment",
+            occupancy: p.occupancy ?? null,
+            is_sample: p.is_sample ?? false,
+          },
+        }))
+    );
   };
 
   useEffect(() => {
@@ -147,6 +189,13 @@ export default function OwnerDashboard({
     { key: "listings", label: "My Listings", count: listings.length },
     { key: "saved", label: "Saved", count: saved.length },
   ];
+
+  const openSaved = (s: any) => {
+    const p = s?.properties;
+    if (!p) return;
+    onClose();
+    selectProperty(p);
+  };
 
   const convoName = (g: Group, c: Convo) => (g.role === "owner" ? c.name || "Tenant" : "Owner");
 
@@ -322,9 +371,10 @@ export default function OwnerDashboard({
                       <p>No saved properties</p>
                     </div>
                   ) : (
-                    saved.map((s) => (
-                      <div key={s.id} className="bg-gray-800 rounded-xl p-4">
-                        <p className="font-semibold">{s.properties?.title}</p>
+                    saved.filter((s) => savedIds.has(String(s.id))).map((s) => (
+                      <div key={s.id} onClick={() => openSaved(s)} className="relative cursor-pointer bg-gray-800 hover:bg-gray-700 rounded-xl p-4">
+                        <SaveButton propertyId={String(s.id)} size="sm" className="absolute right-3 top-3" />
+                        <p className="font-semibold pr-10">{s.properties?.title}</p>
                         <p className="text-green-400 font-bold">₹{s.properties?.rent?.toLocaleString()}/mo</p>
                         <p className="text-gray-400 text-xs mt-1">{s.properties?.bhk} BHK · {s.properties?.address}</p>
                       </div>

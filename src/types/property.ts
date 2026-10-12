@@ -1,4 +1,5 @@
 export type Property = {
+  is_sample?: boolean | null;
   distance_m?: number | null;
   property_type?: string | null;
   occupancy?: string | null;

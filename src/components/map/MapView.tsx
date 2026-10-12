@@ -28,6 +28,15 @@ function buildHoverContent(p: Property): HTMLElement {
     p.property_type === "PG" && p.occupancy ? p.occupancy + " Occupancy" : p.bhk ? p.bhk + " BHK" : "";
   meta.textContent = [p.property_type, size, p.furnishing].filter(Boolean).join(" · ");
 
+  if (p.is_sample) {
+    const tag = document.createElement("div");
+    tag.style.fontSize = "10px";
+    tag.style.fontWeight = "700";
+    tag.style.letterSpacing = "0.04em";
+    tag.style.color = "#fde047";
+    tag.textContent = "SAMPLE · NOT A REAL LISTING";
+    wrap.append(tag);
+  }
   wrap.append(title, rent, meta);
 
   if (p.address) {
@@ -124,7 +133,14 @@ export default function MapView({
 
     if (near.length > 0) {
       map.flyTo({ center: [loc.lng, loc.lat], zoom: 15, speed: 1.2 });
-      flash(`${near.length} listing${near.length === 1 ? "" : "s"} within 2 km. Closest first in the list.`);
+      {
+        const realNear = near.filter((r) => !r.p.is_sample).length;
+        flash(
+          realNear > 0
+            ? `${realNear} listing${realNear === 1 ? "" : "s"} within 2 km. Closest first in the list.`
+            : "No real listings within 2 km yet. Showing sample listings for demonstration."
+        );
+      }
     } else if (ranked.length > 0) {
       const b = new maplibregl.LngLatBounds([loc.lng, loc.lat], [loc.lng, loc.lat]);
       ranked.slice(0, 5).forEach((r) => b.extend([r.p.longitude!, r.p.latitude!]));
@@ -173,7 +189,12 @@ export default function MapView({
       el.style.fontSize = "11px";
       el.style.fontWeight = "700";
       el.style.cursor = "pointer";
-      el.style.background = isSelected ? "#f97316" : "#22d3ee";
+      const sample = !!p.is_sample;
+      el.style.background = isSelected ? "#f97316" : sample ? "#9ca3af" : "#22d3ee";
+      if (sample && !isSelected) {
+        el.style.border = "1px dashed #374151";
+        el.style.opacity = "0.85";
+      }
       el.style.color = isSelected ? "#fff" : "#000";
       el.style.boxShadow = isSelected ? "0 0 12px rgba(249,115,22,0.8)" : "none";
       el.style.zIndex = isSelected ? "10" : "1";

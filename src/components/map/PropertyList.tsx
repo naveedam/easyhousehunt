@@ -1,5 +1,6 @@
 import { Property } from "../../types/property";
 import { formatDistance } from "@/lib/geo";
+import SaveButton from "@/components/SaveButton";
 
 type Props = {
   properties: Property[];
@@ -15,15 +16,32 @@ export default function PropertyList({ properties, onSelect }: Props) {
     return <div className="text-gray-400 p-4 text-sm">No properties found.</div>;
   }
 
+  const hasSamples = properties.some((p) => p.is_sample);
+
   return (
     <div className="space-y-3 px-4 pb-4">
+      {hasSamples && (
+        <div className="rounded-lg border border-yellow-700/60 bg-yellow-900/30 px-3 py-2 text-xs text-yellow-200">
+          Listings marked <b>SAMPLE</b> are for demonstration only. Real listings are shown first.
+        </div>
+      )}
       {properties.map((p) => (
         <div
           key={p.id}
           onClick={() => onSelect(p)}
-          className="bg-gray-800 p-4 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
+          className={`relative p-4 rounded-lg cursor-pointer transition-colors ${
+            p.is_sample
+              ? "bg-gray-800/60 border border-dashed border-gray-600 hover:bg-gray-800"
+              : "bg-gray-800 hover:bg-gray-700"
+          }`}
         >
-          <h3 className="text-white font-semibold text-sm">{p.title || "Untitled"}</h3>
+          {!p.is_sample && <SaveButton propertyId={p.id} size="sm" className="absolute right-2 top-2" />}
+          {p.is_sample && (
+            <span className="mb-1 inline-block rounded bg-yellow-900/70 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-yellow-200">
+              SAMPLE · NOT A REAL LISTING
+            </span>
+          )}
+          <h3 className="text-white font-semibold text-sm pr-8">{p.title || "Untitled"}</h3>
           <p className="text-green-400 font-bold">₹{p.rent?.toLocaleString()}/mo</p>
           {p.property_type === "PG" ? (
             <p className="text-gray-300 text-xs">PG · {p.occupancy || "Single"} Occupancy</p>
