@@ -3,6 +3,7 @@ import { Property } from "../../types/property";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import PhotoGallery from "./PhotoGallery";
+import SaveButton from "@/components/SaveButton";
 import { httpPhotos } from "@/lib/photos";
 import { addRecent } from "@/lib/recentlyViewed";
 
@@ -55,10 +56,20 @@ export default function PropertyDetail({
         </div>
 
         {/* Title & Price */}
-        <h2 className="text-xl font-bold">{property.title || "Untitled"}</h2>
-        <p className="text-green-400 text-2xl font-bold mt-1">
-          ₹{property.rent?.toLocaleString()}/mo
-        </p>
+        {property.is_sample && (
+          <div className="mb-3 rounded-lg bg-yellow-900/60 px-3 py-2 text-center text-xs font-semibold tracking-wide text-yellow-200">
+            SAMPLE LISTING · for demonstration only, not a real home or price
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold">{property.title || "Untitled"}</h2>
+            <p className="text-green-400 text-2xl font-bold mt-1">
+              ₹{property.rent?.toLocaleString()}/mo
+            </p>
+          </div>
+          {!property.is_sample && <SaveButton propertyId={property.id} className="flex-shrink-0" />}
+        </div>
 
         {/* Key details */}
         <div className="flex gap-3 mt-3 flex-wrap">
@@ -119,10 +130,11 @@ export default function PropertyDetail({
 
         {/* CTA */}
         <button
-          onClick={onConnectClick}
-          className="mt-6 w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold text-lg"
+          onClick={property.is_sample ? undefined : onConnectClick}
+          disabled={!!property.is_sample}
+          className="mt-6 w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {user ? "📞 Connect with Owner" : "🔐 Login to Connect"}
+          {property.is_sample ? "Sample listing · cannot be contacted" : user ? "📞 Connect with Owner" : "🔐 Login to Connect"}
         </button>
       </div>
     </div>

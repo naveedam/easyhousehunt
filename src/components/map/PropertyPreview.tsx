@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Property } from "../../types/property";
 import { addRecent } from "@/lib/recentlyViewed";
 import PhotoGallery from "./PhotoGallery";
+import SaveButton from "@/components/SaveButton";
 import { httpPhotos } from "@/lib/photos";
 
 export default function PropertyPreview({
@@ -18,6 +19,7 @@ export default function PropertyPreview({
   const photos = httpPhotos(property.media_urls);
 
   useEffect(() => { addRecent(property.id); }, [property.id]);
+
   const sizeLabel =
     property.property_type === "PG" && property.occupancy
       ? `${property.occupancy} Occupancy`
@@ -43,12 +45,23 @@ export default function PropertyPreview({
         <PhotoGallery key={property.id} urls={photos} alt={property.title || "Listing"} heightClass="h-32" roundedClass="" />
       )}
 
+      {property.is_sample && (
+        <div className="bg-yellow-900/60 px-3 py-1.5 text-center text-[11px] font-semibold tracking-wide text-yellow-200">
+          SAMPLE LISTING · for demonstration only, not a real home
+        </div>
+      )}
+
       <div className={`px-3 pt-3 ${photos.length === 0 ? "pr-9" : ""}`}>
-        <h3 className="truncate text-sm font-semibold">{property.title || "Untitled"}</h3>
-        <p className="text-lg font-bold text-green-400">
-          {property.rent ? `₹${property.rent.toLocaleString("en-IN")}` : "Price on request"}
-          {property.rent ? <span className="text-xs font-normal text-gray-400">/mo</span> : null}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold">{property.title || "Untitled"}</h3>
+            <p className="text-lg font-bold text-green-400">
+              {property.rent ? `₹${property.rent.toLocaleString("en-IN")}` : "Price on request"}
+              {property.rent ? <span className="text-xs font-normal text-gray-400">/mo</span> : null}
+            </p>
+          </div>
+          {!property.is_sample && <SaveButton propertyId={property.id} size="sm" className="flex-shrink-0" />}
+        </div>
         <p className="truncate text-xs text-gray-300">
           {[property.property_type, sizeLabel, property.furnishing].filter(Boolean).join(" · ")}
         </p>

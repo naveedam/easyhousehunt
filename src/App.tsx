@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import MapView from "./components/map/MapView";
 import UnreadBadge from "@/components/UnreadBadge";
 import { setMessagesOpenHandler } from "@/lib/messageStore";
+import { setSignInRequestHandler } from "@/lib/saved";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { AREA_RADIUS_M, distanceMeters } from "@/lib/geo";
 import { setPropertySelectHandler, setSearchableProperties, setSearchNote } from "@/lib/searchStore";
@@ -33,6 +34,10 @@ function App() {
     setMessagesOpenHandler(() => setInboxOpen(true));
     return () => setMessagesOpenHandler(null);
   }, []);
+  useEffect(() => {
+    setSignInRequestHandler(() => { setAuthIntent("tenant"); setAuthModalOpen(true); });
+    return () => setSignInRequestHandler(null);
+  }, []);
   const [authIntent, setAuthIntent] = useState<"owner" | "tenant">("tenant");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [chatProperty, setChatProperty] = useState<Property | null>(null);
@@ -51,7 +56,7 @@ function App() {
     try {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy")
+        .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy, is_sample")
         .eq("market", "india")
         .eq("status", "approved")
         .not("latitude", "is", null)
@@ -78,9 +83,12 @@ function App() {
         landlord_id: p.landlord_id ?? null,
         property_type: p.property_type ?? "Apartment",
         occupancy: p.occupancy ?? null,
+        is_sample: p.is_sample ?? false,
       }));
 
-      setProperties(mapped);
+      // Once there are enough real listings, the labelled samples disappear on their own
+      const realCount = mapped.filter((p) => !p.is_sample).length;
+      setProperties(realCount >= 15 ? mapped.filter((p) => !p.is_sample) : mapped);
     } catch (err) {
       console.error("Fetch error:", err);
       setProperties([]);
@@ -140,10 +148,16 @@ function App() {
         ? distanceMeters(userLoc, { lat: p.latitude, lng: p.longitude })
         : null,
   }));
-  const filteredProperties: Property[] =
+  const orderedProperties: Property[] =
     userLoc && !focus
       ? [...withDistance].sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity))
       : withDistance;
+
+  // Real listings first; labelled samples after them
+  const filteredProperties: Property[] = [
+    ...orderedProperties.filter((p) => !p.is_sample),
+    ...orderedProperties.filter((p) => p.is_sample),
+  ];
 
   useEffect(() => { setSearchableProperties(properties); }, [properties]);
   useEffect(() => { setSearchNote(areaNote); }, [areaNote]);
