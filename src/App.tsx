@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import MapView from "./components/map/MapView";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { AREA_RADIUS_M, distanceMeters } from "@/lib/geo";
-import { setSearchableProperties, setSearchNote } from "@/lib/searchStore";
+import { setPropertySelectHandler, setSearchableProperties, setSearchNote } from "@/lib/searchStore";
 import PropertyList from "./components/map/PropertyList";
 import PropertyDetail from "./components/map/PropertyDetail";
 import AuthModal from "@/components/ui/AuthModal";
@@ -38,7 +38,7 @@ function App() {
   const [rentRightOpen, setRentRightOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filters, setFilters] = useState<Filters>({
-    bhk: [], minRent: 0, maxRent: 200000, furnishing: [], search: "", propertyType: "All", occupancy: []
+    bhk: [], minRent: 0, maxRent: 99999999, furnishing: [], search: "", propertyType: "All", occupancy: []
   });
 
   async function fetchProperties() {
@@ -141,6 +141,10 @@ function App() {
 
   useEffect(() => { setSearchableProperties(properties); }, [properties]);
   useEffect(() => { setSearchNote(areaNote); }, [areaNote]);
+  useEffect(() => {
+    setPropertySelectHandler((p) => { setSelectedProperty(p); setDetailProperty(p); });
+    return () => setPropertySelectHandler(null);
+  }, []);
 
   const handleListProperty = () => {
     if (user) { setWizardOpen(true); }

@@ -32,3 +32,10 @@ export const useSearchableProperties = () =>
 
 export const useSearchNote = () =>
   useSyncExternalStore(subscribe, () => state.note, () => state.note);
+
+// Lets components outside App (e.g. the Recently viewed list) open a listing the way a list tap does
+let selectHandler: ((p: Property) => void) | null = null;
+export const setPropertySelectHandler = (h: ((p: Property) => void) | null) => {
+  selectHandler = h;
+};
+export const selectProperty = (p: Property) => selectHandler?.(p);

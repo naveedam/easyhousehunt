@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Property } from "../../types/property";
+import { addRecent } from "@/lib/recentlyViewed";
 import PhotoGallery from "./PhotoGallery";
 import { httpPhotos } from "@/lib/photos";
 
@@ -14,6 +16,8 @@ export default function PropertyPreview({
   bottom?: string;
 }) {
   const photos = httpPhotos(property.media_urls);
+
+  useEffect(() => { addRecent(property.id); }, [property.id]);
   const sizeLabel =
     property.property_type === "PG" && property.occupancy
       ? `${property.occupancy} Occupancy`

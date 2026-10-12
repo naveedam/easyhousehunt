@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildIndex, getSuggestions, type Suggestion } from "@/lib/searchIndex";
 import { useSearchableProperties, useSearchNote } from "@/lib/searchStore";
+import RecentlyViewed from "@/components/RecentlyViewed";
 
 export interface Filters {
   bhk: number[];
@@ -13,10 +14,13 @@ export interface Filters {
   area?: { name: string; lat: number; lng: number } | null;
 }
 
+// A very large number means "no maximum rent"
+export const NO_MAX_RENT = 99999999;
+
 const DEFAULT_FILTERS: Filters = {
   bhk: [],
   minRent: 0,
-  maxRent: 200000,
+  maxRent: NO_MAX_RENT,
   furnishing: [],
   search: "",
   propertyType: "All",
@@ -88,6 +92,13 @@ export default function SearchFilters({
       : [...filters.occupancy, o];
     update({ occupancy: next });
   };
+  // If From is higher than To, swap them when the person leaves the box
+  const fixRentOrder = () => {
+    if (filters.maxRent < NO_MAX_RENT && filters.minRent > filters.maxRent) {
+      update({ minRent: filters.maxRent, maxRent: filters.minRent });
+    }
+  };
+
   const reset = () => {
     setFilters(DEFAULT_FILTERS);
     onChange(DEFAULT_FILTERS);
@@ -96,7 +107,7 @@ export default function SearchFilters({
   const activeCount = [
     filters.bhk.length > 0,
     filters.furnishing.length > 0,
-    filters.minRent > 0 || filters.maxRent < 200000,
+    filters.minRent > 0 || filters.maxRent < NO_MAX_RENT,
     filters.propertyType !== "All",
     filters.occupancy.length > 0,
   ].filter(Boolean).length;
@@ -207,6 +218,7 @@ export default function SearchFilters({
           )}
           <span>{expanded ? "▲" : "▼"}</span>
         </button>
+        <RecentlyViewed />
         {activeCount > 0 && (
           <button onClick={reset} className="text-xs text-gray-500 hover:text-orange-400">
             Clear all
@@ -243,7 +255,7 @@ export default function SearchFilters({
           <div>
             <p className="text-xs text-gray-400 mb-2">BHK</p>
             <div className="flex gap-2">
-              {[1, 2, 3, 4].map((n) => (
+              {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   onClick={() => toggleBhk(n)}
@@ -280,26 +292,36 @@ export default function SearchFilters({
           )}
           {/* Rent range */}
           <div>
-            <div className="flex justify-between mb-1">
-              <p className="text-xs text-gray-400">Rent Range</p>
-              <p className="text-xs text-orange-400">
-                ₹{(filters.minRent/1000).toFixed(0)}k – ₹{(filters.maxRent/1000).toFixed(0)}k
-              </p>
-            </div>
-            <div className="space-y-1.5">
+            <p className="text-xs text-gray-400 mb-2">Rent range (₹ per month)</p>
+            <div className="flex items-center gap-2">
               <input
-                type="range" min={0} max={200000} step={5000}
-                value={filters.minRent}
-                onChange={(e) => update({ minRent: Math.min(Number(e.target.value), filters.maxRent - 5000) })}
-                className="w-full accent-orange-500"
+                type="text"
+                inputMode="numeric"
+                placeholder="From"
+                aria-label="Minimum rent"
+                value={filters.minRent > 0 ? filters.minRent.toLocaleString("en-IN") : ""}
+                onChange={(e) => update({ minRent: Number(e.target.value.replace(/\D/g, "")) || 0 })}
+                onBlur={fixRentOrder}
+                className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
+              <span className="text-xs text-gray-500">to</span>
               <input
-                type="range" min={0} max={200000} step={5000}
-                value={filters.maxRent}
-                onChange={(e) => update({ maxRent: Math.max(Number(e.target.value), filters.minRent + 5000) })}
-                className="w-full accent-orange-500"
+                type="text"
+                inputMode="numeric"
+                placeholder="To"
+                aria-label="Maximum rent"
+                value={filters.maxRent < NO_MAX_RENT ? filters.maxRent.toLocaleString("en-IN") : ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value.replace(/\D/g, ""));
+                  update({ maxRent: n > 0 ? n : NO_MAX_RENT });
+                }}
+                onBlur={fixRentOrder}
+                className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
+            {filters.maxRent < NO_MAX_RENT && filters.minRent > filters.maxRent && (
+              <p className="mt-1 text-xs text-yellow-300">"From" is higher than "To".</p>
+            )}
           </div>
 
           {/* Furnishing */}
