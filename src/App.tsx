@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import MapView from "./components/map/MapView";
+import UnreadBadge from "@/components/UnreadBadge";
+import { setMessagesOpenHandler } from "@/lib/messageStore";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { AREA_RADIUS_M, distanceMeters } from "@/lib/geo";
 import { setPropertySelectHandler, setSearchableProperties, setSearchNote } from "@/lib/searchStore";
@@ -27,6 +29,10 @@ function App() {
   const [detailProperty, setDetailProperty] = useState<Property | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const { location: userLoc } = useUserLocation();
+  useEffect(() => {
+    setMessagesOpenHandler(() => setInboxOpen(true));
+    return () => setMessagesOpenHandler(null);
+  }, []);
   const [authIntent, setAuthIntent] = useState<"owner" | "tenant">("tenant");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [chatProperty, setChatProperty] = useState<Property | null>(null);
@@ -205,11 +211,11 @@ function App() {
                       </div>
                       <button onClick={() => { setInboxOpen(true); setMenuOpen(false); }}
                         className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
-                        💬 Messages
+                        💬 Messages <UnreadBadge />
                       </button>
                       <button onClick={() => { setOwnerDashOpen(true); setMenuOpen(false); }}
                         className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
-                        🏠 My Listings
+                        📋 My Dashboard
                       </button>
                       <button onClick={() => { setRentRightOpen(true); setMenuOpen(false); }}
                         className="w-full text-left px-4 py-3 text-sm text-white hover:bg-gray-700 flex items-center gap-2">
@@ -285,7 +291,7 @@ function App() {
         />
       )}
 
-      {inboxOpen && <Inbox onClose={() => setInboxOpen(false)} />}
+      {inboxOpen && <OwnerDashboard initialTab="messages" onClose={() => setInboxOpen(false)} />}
 
       {wizardOpen && (
         <ListingWizard
