@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import MapView from "./components/map/MapView";
 import UnreadBadge from "@/components/UnreadBadge";
 import { setMessagesOpenHandler } from "@/lib/messageStore";
@@ -313,6 +314,7 @@ function App() {
       {tenantDashOpen && <TenantDashboard onClose={() => setTenantDashOpen(false)} />}
       {adminDashOpen && <AdminDashboard onClose={() => { setAdminDashOpen(false); fetchProperties(); }} />}
       {rentRightOpen && <RentRight onClose={() => setRentRightOpen(false)} />}
+      <Analytics />
     </>
   );
 }
