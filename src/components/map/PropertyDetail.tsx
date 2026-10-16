@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import PhotoGallery from "./PhotoGallery";
 import SaveButton from "@/components/SaveButton";
+import { formatPrice, pricePerSqft } from "@/lib/price";
 import { httpPhotos } from "@/lib/photos";
 import { addRecent } from "@/lib/recentlyViewed";
 
@@ -65,7 +66,10 @@ export default function PropertyDetail({
           <div className="min-w-0">
             <h2 className="text-xl font-bold">{property.title || "Untitled"}</h2>
             <p className="text-green-400 text-2xl font-bold mt-1">
-              ₹{property.rent?.toLocaleString()}/mo
+              {formatPrice(property)}
+              {pricePerSqft(property) && (
+                <span className="ml-2 text-sm font-normal text-gray-400">{pricePerSqft(property)}</span>
+              )}
             </p>
           </div>
           {!property.is_sample && <SaveButton propertyId={property.id} className="flex-shrink-0" />}
@@ -104,6 +108,12 @@ export default function PropertyDetail({
           )}
         </div>
 
+        {property.listing_type === "sale" && (
+          <div className="mt-4 rounded-lg bg-gray-800 px-3 py-2 text-xs text-gray-300">
+            Thinking of buying? Before you pay any money, check the title deeds, khata, encumbrance certificate and, for projects, the RERA registration, preferably with a lawyer. EasyHouseHunt does not verify ownership.
+          </div>
+        )}
+
         {/* Address */}
         {property.address && (
           <p className="text-gray-400 text-sm mt-3">📍 {property.address}</p>
@@ -134,7 +144,7 @@ export default function PropertyDetail({
           disabled={!!property.is_sample}
           className="mt-6 w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {property.is_sample ? "Sample listing · cannot be contacted" : user ? "📞 Connect with Owner" : "🔐 Login to Connect"}
+          {property.is_sample ? "Sample listing · cannot be contacted" : user ? (property.listing_type === "sale" ? "📞 Contact the seller" : "📞 Connect with Owner") : "🔐 Login to Connect"}
         </button>
       </div>
     </div>

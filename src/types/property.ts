@@ -1,4 +1,6 @@
 export type Property = {
+  listing_type?: string | null;
+  sale_price?: number | null;
   is_sample?: boolean | null;
   distance_m?: number | null;
   property_type?: string | null;

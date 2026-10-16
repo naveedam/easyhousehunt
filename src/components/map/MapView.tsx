@@ -4,6 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Property } from "../../types/property";
 import PropertyPreview from "./PropertyPreview";
 import { useUserLocation } from "@/hooks/useUserLocation";
+import { formatPrice, pinLabel } from "@/lib/price";
 import { NEAR_RADIUS_M, distanceMeters, formatDistance } from "@/lib/geo";
 
 function buildHoverContent(p: Property): HTMLElement {
@@ -19,7 +20,7 @@ function buildHoverContent(p: Property): HTMLElement {
   rent.style.color = "#4ade80";
   rent.style.fontWeight = "700";
   rent.style.fontSize = "15px";
-  rent.textContent = p.rent ? "₹" + p.rent.toLocaleString("en-IN") + "/mo" : "Price on request";
+  rent.textContent = formatPrice(p);
 
   const meta = document.createElement("div");
   meta.style.fontSize = "12px";
@@ -111,7 +112,7 @@ export default function MapView({
     const result = await locate();
     setLocating(false);
 
-    if (!result.ok) {
+    if (result.ok === false) {
       if (silent) { setNearMsg(null); return; }
       flash(
         result.reason === "denied"
@@ -198,7 +199,7 @@ export default function MapView({
       el.style.color = isSelected ? "#fff" : "#000";
       el.style.boxShadow = isSelected ? "0 0 12px rgba(249,115,22,0.8)" : "none";
       el.style.zIndex = isSelected ? "10" : "1";
-      el.innerText = p.rent ? "₹" + Math.round(p.rent / 1000) + "k" : "₹";
+      el.innerText = pinLabel(p);
       el.addEventListener("mouseenter", () => {
         if (!canHover) return;
         hoverPopupRef.current?.remove();

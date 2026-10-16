@@ -1,6 +1,7 @@
 import { Property } from "../../types/property";
 import { formatDistance } from "@/lib/geo";
 import SaveButton from "@/components/SaveButton";
+import { formatPrice } from "@/lib/price";
 
 type Props = {
   properties: Property[];
@@ -42,7 +43,7 @@ export default function PropertyList({ properties, onSelect }: Props) {
             </span>
           )}
           <h3 className="text-white font-semibold text-sm pr-8">{p.title || "Untitled"}</h3>
-          <p className="text-green-400 font-bold">₹{p.rent?.toLocaleString()}/mo</p>
+          <p className="text-green-400 font-bold">{formatPrice(p)}</p>
           {p.property_type === "PG" ? (
             <p className="text-gray-300 text-xs">PG · {p.occupancy || "Single"} Occupancy</p>
           ) : p.bhk ? (

@@ -7,6 +7,7 @@ import { useMessageVersion, useUnread } from "@/lib/messageStore";
 import { selectProperty } from "@/lib/searchStore";
 import { useSavedIds } from "@/lib/saved";
 import SaveButton from "@/components/SaveButton";
+import { formatPrice } from "@/lib/price";
 
 type Tab = "messages" | "listings" | "saved";
 
@@ -63,7 +64,7 @@ export default function OwnerDashboard({
     if (!user) return;
     const { data } = await supabase
       .from("properties")
-      .select("id, title, rent, bhk, address, created_at, status, rejection_reason")
+      .select("id, title, rent, bhk, address, created_at, status, rejection_reason, listing_type, sale_price")
       .eq("market", "india")
       .eq("landlord_id", user.id)
       .order("created_at", { ascending: false });
@@ -85,7 +86,7 @@ export default function OwnerDashboard({
     }
     const { data: props } = await supabase
       .from("properties")
-      .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy, is_sample")
+      .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy, is_sample, listing_type, sale_price")
       .in("id", ids);
     const byId = new Map((props || []).map((p: any) => [String(p.id), p]));
     setSaved(
@@ -113,6 +114,8 @@ export default function OwnerDashboard({
             property_type: p.property_type ?? "Apartment",
             occupancy: p.occupancy ?? null,
             is_sample: p.is_sample ?? false,
+            listing_type: p.listing_type ?? "rent",
+            sale_price: p.sale_price ?? null,
           },
         }))
     );
@@ -341,7 +344,7 @@ export default function OwnerDashboard({
                                 {l.status === "approved" ? "Live" : l.status === "rejected" ? "Not approved" : "Pending review"}
                               </span>
                             </div>
-                            <p className="text-green-400 font-bold">₹{l.rent?.toLocaleString()}/mo</p>
+                            <p className="text-green-400 font-bold">{formatPrice(l)}</p>
                             {l.status === "pending" && <p className="text-yellow-400 text-xs mt-1">Waiting for review. Not visible on the map yet.</p>}
                             {l.status === "rejected" && (
                               <p className="text-red-400 text-xs mt-1">
@@ -375,7 +378,7 @@ export default function OwnerDashboard({
                       <div key={s.id} onClick={() => openSaved(s)} className="relative cursor-pointer bg-gray-800 hover:bg-gray-700 rounded-xl p-4">
                         <SaveButton propertyId={String(s.id)} size="sm" className="absolute right-3 top-3" />
                         <p className="font-semibold pr-10">{s.properties?.title}</p>
-                        <p className="text-green-400 font-bold">₹{s.properties?.rent?.toLocaleString()}/mo</p>
+                        <p className="text-green-400 font-bold">{formatPrice(s.properties)}</p>
                         <p className="text-gray-400 text-xs mt-1">{s.properties?.bhk} BHK · {s.properties?.address}</p>
                       </div>
                     ))

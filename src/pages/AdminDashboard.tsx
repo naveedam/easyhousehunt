@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import EditListingModal from "@/components/EditListingModal";
+import { formatPrice } from "@/lib/price";
 import { supabase } from "@/integrations/supabase/client";
 
 type Tab = "pending" | "listings" | "messages" | "users";
@@ -33,7 +34,7 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
 
     const { data: props, error: pErr } = await supabase
       .from("properties")
-      .select("id, title, rent, bhk, address, created_at, landlord_id, latitude, longitude, market, status, rejection_reason, reviewed_at, property_type, furnishing, deposit, description, media_urls")
+      .select("id, title, rent, bhk, address, created_at, landlord_id, latitude, longitude, market, status, rejection_reason, reviewed_at, property_type, furnishing, deposit, description, media_urls, listing_type, sale_price")
       .order("created_at", { ascending: false })
       .limit(300);
     if (pErr) setLoadError(pErr.message);
@@ -150,8 +151,11 @@ export default function AdminDashboard({ onClose }: { onClose: () => void }) {
                 {l.status}
               </span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">{l.market}</span>
+              {l.listing_type === "sale" && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900 text-blue-300">For sale</span>
+              )}
             </div>
-            <p className="text-green-400 font-bold">₹{l.rent?.toLocaleString()}/mo</p>
+            <p className="text-green-400 font-bold">{formatPrice(l)}</p>
             <p className="text-gray-300 text-xs mt-1">
               {[
                 l.property_type,

@@ -56,7 +56,7 @@ function App() {
     try {
       const { data, error } = await supabase
         .from("properties")
-        .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy, is_sample")
+        .select("id, title, rent, bhk, address, latitude, longitude, deposit, furnishing, area_sqft, description, amenities, media_urls, landlord_id, property_type, occupancy, is_sample, listing_type, sale_price")
         .eq("market", "india")
         .eq("status", "approved")
         .not("latitude", "is", null)
@@ -84,6 +84,8 @@ function App() {
         property_type: p.property_type ?? "Apartment",
         occupancy: p.occupancy ?? null,
         is_sample: p.is_sample ?? false,
+        listing_type: p.listing_type ?? "rent",
+        sale_price: p.sale_price ?? null,
       }));
 
       // Once there are enough real listings, the labelled samples disappear on their own
@@ -112,7 +114,10 @@ function App() {
 
   const filteredByFilters = properties.filter((p) => {
     if (filters.bhk.length > 0 && !filters.bhk.includes(p.bhk ?? 0)) return false;
-    if (p.rent < filters.minRent || p.rent > filters.maxRent) return false;
+    if ((p.listing_type ?? "rent") !== (filters.mode ?? "rent")) return false;
+    const price = p.listing_type === "sale" ? (p.sale_price ?? 0) : p.rent;
+    const noMax = filters.maxRent >= 99999999;
+    if (price < filters.minRent || (!noMax && price > filters.maxRent)) return false;
     if (filters.furnishing.length > 0 && !filters.furnishing.includes(p.furnishing ?? "")) return false;
     if (filters.propertyType !== "All" && p.property_type !== filters.propertyType) return false;
     if (filters.search) {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildIndex, getSuggestions, type Suggestion } from "@/lib/searchIndex";
 import { useSearchableProperties, useSearchNote } from "@/lib/searchStore";
 import RecentlyViewed from "@/components/RecentlyViewed";
+import { SALE_ENABLED } from "@/lib/features";
 
 export interface Filters {
   bhk: number[];
@@ -12,10 +13,20 @@ export interface Filters {
   propertyType: string;
   occupancy: string[];
   area?: { name: string; lat: number; lng: number } | null;
+  mode?: "rent" | "sale";
 }
 
 // A very large number means "no maximum rent"
 export const NO_MAX_RENT = 99999999;
+
+const SALE_BANDS = [
+  { label: "Any price", min: 0, max: NO_MAX_RENT },
+  { label: "Under ₹50 L", min: 0, max: 5_000_000 },
+  { label: "₹50 L – ₹1 Cr", min: 5_000_000, max: 10_000_000 },
+  { label: "₹1 – 2 Cr", min: 10_000_000, max: 20_000_000 },
+  { label: "₹2 – 3 Cr", min: 20_000_000, max: 30_000_000 },
+  { label: "₹3 Cr+", min: 30_000_000, max: NO_MAX_RENT },
+];
 
 const DEFAULT_FILTERS: Filters = {
   bhk: [],
@@ -26,6 +37,7 @@ const DEFAULT_FILTERS: Filters = {
   propertyType: "All",
   occupancy: [],
   area: null,
+  mode: "rent",
 };
 
 export default function SearchFilters({
@@ -39,7 +51,12 @@ export default function SearchFilters({
   // Suggestions: apartment names from live listings + a bundled list of Bengaluru areas
   const allProperties = useSearchableProperties();
   const searchNote = useSearchNote();
-  const index = useMemo(() => buildIndex(allProperties), [allProperties]);
+  const modeNow = filters.mode ?? "rent";
+  const isSaleMode = SALE_ENABLED && modeNow === "sale";
+  const index = useMemo(
+    () => buildIndex(allProperties.filter((p) => (p.listing_type ?? "rent") === modeNow)),
+    [allProperties, modeNow]
+  );
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -92,6 +109,16 @@ export default function SearchFilters({
       : [...filters.occupancy, o];
     update({ occupancy: next });
   };
+  const setMode = (m: "rent" | "sale") => {
+    update({
+      mode: m,
+      minRent: 0,
+      maxRent: NO_MAX_RENT,
+      occupancy: [],
+      propertyType: m === "sale" && filters.propertyType === "PG" ? "All" : filters.propertyType,
+    });
+  };
+
   // If From is higher than To, swap them when the person leaves the box
   const fixRentOrder = () => {
     if (filters.maxRent < NO_MAX_RENT && filters.minRent > filters.maxRent) {
@@ -114,6 +141,28 @@ export default function SearchFilters({
 
   return (
     <div className="px-4 pb-2">
+      {/* Rent / Buy */}
+      {SALE_ENABLED && (
+        <div className="mb-2">
+          <div className="flex rounded-lg bg-gray-800 p-1 text-sm font-semibold">
+            {(["rent", "sale"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`flex-1 rounded-md py-1.5 ${modeNow === m ? "bg-orange-500 text-white" : "text-gray-300 hover:text-white"}`}
+              >
+                {m === "rent" ? "Rent" : "Buy"}
+              </button>
+            ))}
+          </div>
+          {isSaleMode && (
+            <p className="mt-1 text-xs text-gray-400">
+              Homes for sale are new here. Own one you would like to sell? Tap &quot;+ List Your Property&quot; and choose Sell.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Search bar */}
       <div ref={boxRef} className="mb-2">
         <div className="relative">
@@ -234,7 +283,7 @@ export default function SearchFilters({
           <div>
             <p className="text-xs text-gray-400 mb-2">Property Type</p>
             <div className="flex gap-2">
-              {["All", "Apartment", "PG", "Independent House"].map((t) => (
+              {["All", "Apartment", "PG", "Independent House"].filter((t) => !(isSaleMode && t === "PG")).map((t) => (
                 <button
                   key={t}
                   onClick={() => update({ propertyType: t })}
@@ -290,39 +339,57 @@ export default function SearchFilters({
             </div>
           </div>
           )}
-          {/* Rent range */}
-          <div>
-            <p className="text-xs text-gray-400 mb-2">Rent range (₹ per month)</p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="From"
-                aria-label="Minimum rent"
-                value={filters.minRent > 0 ? filters.minRent.toLocaleString("en-IN") : ""}
-                onChange={(e) => update({ minRent: Number(e.target.value.replace(/\D/g, "")) || 0 })}
-                onBlur={fixRentOrder}
-                className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-              <span className="text-xs text-gray-500">to</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="To"
-                aria-label="Maximum rent"
-                value={filters.maxRent < NO_MAX_RENT ? filters.maxRent.toLocaleString("en-IN") : ""}
+          {/* Price range */}
+          {isSaleMode ? (
+            <div>
+              <p className="text-xs text-gray-400 mb-2">Price</p>
+              <select
+                value={`${filters.minRent}-${filters.maxRent}`}
                 onChange={(e) => {
-                  const n = Number(e.target.value.replace(/\D/g, ""));
-                  update({ maxRent: n > 0 ? n : NO_MAX_RENT });
+                  const [min, max] = e.target.value.split("-").map(Number);
+                  update({ minRent: min, maxRent: max });
                 }}
-                onBlur={fixRentOrder}
-                className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
+                className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                {SALE_BANDS.map((b) => (
+                  <option key={b.label} value={`${b.min}-${b.max}`}>{b.label}</option>
+                ))}
+              </select>
             </div>
-            {filters.maxRent < NO_MAX_RENT && filters.minRent > filters.maxRent && (
-              <p className="mt-1 text-xs text-yellow-300">"From" is higher than "To".</p>
-            )}
-          </div>
+          ) : (
+            <div>
+              <p className="text-xs text-gray-400 mb-2">Rent range (₹ per month)</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="From"
+                  aria-label="Minimum rent"
+                  value={filters.minRent > 0 ? filters.minRent.toLocaleString("en-IN") : ""}
+                  onChange={(e) => update({ minRent: Number(e.target.value.replace(/\D/g, "")) || 0 })}
+                  onBlur={fixRentOrder}
+                  className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <span className="text-xs text-gray-500">to</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="To"
+                  aria-label="Maximum rent"
+                  value={filters.maxRent < NO_MAX_RENT ? filters.maxRent.toLocaleString("en-IN") : ""}
+                  onChange={(e) => {
+                    const n = Number(e.target.value.replace(/\D/g, ""));
+                    update({ maxRent: n > 0 ? n : NO_MAX_RENT });
+                  }}
+                  onBlur={fixRentOrder}
+                  className="w-full bg-gray-800 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              {filters.maxRent < NO_MAX_RENT && filters.minRent > filters.maxRent && (
+                <p className="mt-1 text-xs text-yellow-300">"From" is higher than "To".</p>
+              )}
+            </div>
+          )}
 
           {/* Furnishing */}
           <div>

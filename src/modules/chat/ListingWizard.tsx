@@ -1,5 +1,7 @@
 import { uploadListingPhotos } from "@/lib/photos";
 import LocationPicker from "@/components/map/LocationPicker";
+import { formatSalePrice } from "@/lib/price";
+import { SALE_ENABLED } from "@/lib/features";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +11,7 @@ const PROJECTS = [
   "Embassy Lake Terraces", "RMZ Latitude", "Godrej Woodman Estate",
   "SNN Clermont", "Karle Zenith Residences", "Prestige Lakeside Habitat",
   "Sobha City", "Nikoo Homes", "Brigade Cornerstone Utopia",
-  "Purva Atmosphere", "Other",
+  "Purva Atmosphere", "Vario Homes", "Other",
 ];
 
 const AMENITY_OPTIONS = [
@@ -38,6 +40,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [findSignal, setFindSignal] = useState(0);
+  const [listingType, setListingType] = useState<"rent" | "sale">("rent");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -54,6 +57,16 @@ export default function ListingWizard({ onClose, onSuccess }: {
       ? (selectedProject === "Other" ? customProject : selectedProject)
       : customProject
     ).trim();
+
+  const chooseListingType = (t: "rent" | "sale") => {
+    if (t === listingType) return;
+    setListingType(t);
+    if (t === "sale" && form.property_type === "PG") {
+      set("property_type", "Apartment");
+      setSelectedProject("");
+      setCustomProject("");
+    }
+  };
 
   const chooseType = (t: string) => {
     if (t === form.property_type) return;
@@ -127,8 +140,10 @@ export default function ListingWizard({ onClose, onSuccess }: {
       market: "india",
       title: listingTitle(),
       address: form.address,
-      rent: parseInt(form.rent) || 0,
-      deposit: parseInt(form.deposit) || null,
+      listing_type: listingType,
+      rent: listingType === "sale" ? 0 : parseInt(form.rent) || 0,
+      sale_price: listingType === "sale" ? Math.round(Number(form.rent)) || null : null,
+      deposit: listingType === "sale" ? null : parseInt(form.deposit) || null,
       bhk: parseInt(form.bhk),
       area_sqft: parseInt(form.area_sqft) || null,
       furnishing: form.furnishing,
@@ -176,7 +191,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
 
   const canNext = () => {
     if (step === 1) return step1Missing().length === 0;
-    if (step === 2) return form.rent;
+    if (step === 2) return listingType === "sale" ? Number(form.rent) > 0 : form.rent;
     return true;
   };
 
@@ -206,10 +221,23 @@ export default function ListingWizard({ onClose, onSuccess }: {
           {/* Step 1: Property + Address */}
           {step === 1 && (
             <>
+              {SALE_ENABLED && (
+                <div>
+                  <label className="text-sm text-gray-400">I want to *</label>
+                  <div className="flex gap-2 mt-1">
+                    {(["rent", "sale"] as const).map(t => (
+                      <button key={t} onClick={() => chooseListingType(t)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium border ${listingType === t ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
+                        {t === "rent" ? "🏠 Rent it out" : "💰 Sell it"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="text-sm text-gray-400">Property Type *</label>
                 <div className="flex gap-2 mt-1">
-                  {["Apartment", "Independent House", "PG"].map(t => (
+                  {["Apartment", "Independent House", "PG"].filter(t => !(listingType === "sale" && t === "PG")).map(t => (
                     <button key={t} onClick={() => chooseType(t)}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium border ${form.property_type === t ? "bg-orange-500 border-orange-500 text-white" : "bg-gray-800 border-gray-600 text-gray-300"}`}>
                       {t}
@@ -290,12 +318,15 @@ export default function ListingWizard({ onClose, onSuccess }: {
           {step === 2 && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm text-gray-400">Monthly Rent (₹) *</label>
-                <input type="number" className={inp + " mt-1"} placeholder="e.g. 35000" value={form.rent} onChange={e => set("rent", e.target.value)} />
+                <label className="text-sm text-gray-400">{listingType === "sale" ? "Asking price (₹) *" : "Monthly Rent (₹) *"}</label>
+                <input type="number" className={inp + " mt-1"} placeholder={listingType === "sale" ? "e.g. 8500000" : "e.g. 35000"} value={form.rent} onChange={e => set("rent", e.target.value)} />
+                {listingType === "sale" && Number(form.rent) > 0 && (
+                  <p className="mt-1 text-xs text-green-400">{formatSalePrice(Number(form.rent))}</p>
+                )}
               </div>
               <div>
-                <label className="text-sm text-gray-400">Deposit (₹)</label>
-                <input type="number" className={inp + " mt-1"} placeholder="e.g. 100000" value={form.deposit} onChange={e => set("deposit", e.target.value)} />
+                {listingType === "rent" && <label className="text-sm text-gray-400">Deposit (₹)</label>}
+                {listingType === "rent" && <input type="number" className={inp + " mt-1"} placeholder="e.g. 100000" value={form.deposit} onChange={e => set("deposit", e.target.value)} />}
               </div>
               <div>
                 {form.property_type === "PG" ? (
@@ -469,7 +500,7 @@ export default function ListingWizard({ onClose, onSuccess }: {
               <div className="bg-gray-800 rounded-lg p-3 text-xs space-y-1">
                 <p className="text-gray-400 font-semibold mb-2">Listing Summary</p>
                 <p><span className="text-gray-400">Property:</span> <span className="text-white">{listingTitle()}</span></p>
-                <p><span className="text-gray-400">Rent:</span> <span className="text-green-400 font-bold">₹{parseInt(form.rent || "0").toLocaleString()}/mo</span></p>
+                <p><span className="text-gray-400">{listingType === "sale" ? "Asking price:" : "Rent:"}</span> <span className="text-green-400 font-bold">{listingType === "sale" ? formatSalePrice(Number(form.rent)) : `₹${parseInt(form.rent || "0").toLocaleString()}/mo`}</span></p>
                 {form.property_type === "PG" ? (
                   <>
                     <p><span className="text-gray-400">Type:</span> <span className="text-white">PG · {form.occupancy} Occupancy</span></p>

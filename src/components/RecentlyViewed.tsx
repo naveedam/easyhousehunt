@@ -4,6 +4,7 @@ import type { Property } from "@/types/property";
 import { clearRecent, useRecentIds } from "@/lib/recentlyViewed";
 import { selectProperty, useSearchableProperties } from "@/lib/searchStore";
 import { httpPhotos } from "@/lib/photos";
+import { formatPrice } from "@/lib/price";
 
 export default function RecentlyViewed() {
   const ids = useRecentIds();
@@ -75,7 +76,7 @@ export default function RecentlyViewed() {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">{p.title || "Untitled"}</p>
-                        <p className="text-sm font-bold text-green-400">₹{p.rent?.toLocaleString("en-IN")}/mo</p>
+                        <p className="text-sm font-bold text-green-400">{formatPrice(p)}</p>
                         <p className="truncate text-xs text-gray-400">
                           {[p.property_type, size].filter(Boolean).join(" · ")}
                           {p.address ? ` · ${p.address}` : ""}
