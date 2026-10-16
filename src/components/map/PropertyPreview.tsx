@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Property } from "../../types/property";
 import { addRecent } from "@/lib/recentlyViewed";
+import { formatPrice } from "@/lib/price";
 import PhotoGallery from "./PhotoGallery";
 import SaveButton from "@/components/SaveButton";
 import { httpPhotos } from "@/lib/photos";
@@ -56,8 +57,7 @@ export default function PropertyPreview({
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold">{property.title || "Untitled"}</h3>
             <p className="text-lg font-bold text-green-400">
-              {property.rent ? `₹${property.rent.toLocaleString("en-IN")}` : "Price on request"}
-              {property.rent ? <span className="text-xs font-normal text-gray-400">/mo</span> : null}
+              {formatPrice(property)}
             </p>
           </div>
           {!property.is_sample && <SaveButton propertyId={property.id} size="sm" className="flex-shrink-0" />}

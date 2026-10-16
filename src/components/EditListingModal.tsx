@@ -26,7 +26,7 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
   const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({
     title: "", rent: "", deposit: "", bhk: "", area_sqft: "",
-    furnishing: "", description: "", address: "", latitude: "", longitude: "",
+    furnishing: "", description: "", address: "", latitude: "", longitude: "", sale_price: "",
   });
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
@@ -64,6 +64,7 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
         address: data.address ?? "",
         latitude: data.latitude != null ? String(data.latitude) : "",
         longitude: data.longitude != null ? String(data.longitude) : "",
+        sale_price: data.sale_price != null ? String(data.sale_price) : "",
       });
       setPhotoUrls(((data.media_urls as unknown[]) || []).filter(isHttpUrl));
     })();
@@ -109,6 +110,11 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
     if (!orig) return;
     setError("");
 
+    if (orig.listing_type === "sale" && !(parseInt(form.sale_price) > 0)) {
+      setError("Please enter the asking price.");
+      return;
+    }
+
     if (!adminMode && totalPhotos === 0) {
       setError("Please add at least one photo. Listings without photos can't be approved.");
       return;
@@ -124,7 +130,8 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
 
       const next: Record<string, any> = {
         title: form.title.trim(),
-        rent: parseInt(form.rent) || 0,
+        rent: orig.listing_type === "sale" ? orig.rent ?? 0 : parseInt(form.rent) || 0,
+        sale_price: orig.listing_type === "sale" ? parseInt(form.sale_price) || null : orig.sale_price ?? null,
         deposit: parseInt(form.deposit) || null,
         bhk: form.bhk === "" ? null : parseInt(form.bhk),
         area_sqft: parseInt(form.area_sqft) || null,
@@ -189,17 +196,24 @@ export default function EditListingModal({ listing, onClose, onSaved, adminMode 
                 <input className={inp + " mt-1"} value={form.title} onChange={(e) => set("title", e.target.value)} />
               </div>
 
-              {/* Rent + Deposit */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Price */}
+              {orig.listing_type === "sale" ? (
                 <div>
-                  <label className="text-xs text-gray-400">Rent (₹/mo)</label>
-                  <input type="number" className={inp + " mt-1"} value={form.rent} onChange={(e) => set("rent", e.target.value)} />
+                  <label className="text-xs text-gray-400">Asking price (₹)</label>
+                  <input type="number" className={inp + " mt-1"} value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-400">Deposit (₹)</label>
-                  <input type="number" className={inp + " mt-1"} value={form.deposit} onChange={(e) => set("deposit", e.target.value)} />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400">Rent (₹/mo)</label>
+                    <input type="number" className={inp + " mt-1"} value={form.rent} onChange={(e) => set("rent", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400">Deposit (₹)</label>
+                    <input type="number" className={inp + " mt-1"} value={form.deposit} onChange={(e) => set("deposit", e.target.value)} />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* BHK + Area */}
               <div className="grid grid-cols-2 gap-3">
